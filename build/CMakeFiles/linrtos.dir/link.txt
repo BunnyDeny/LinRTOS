@@ -1,0 +1,2 @@
+/usr/bin/arm-none-eabi-ar qc liblinrtos.a CMakeFiles/linrtos.dir/src/rtos_sched.c.obj CMakeFiles/linrtos.dir/src/rtos_task.c.obj CMakeFiles/linrtos.dir/src/rtos_tick.c.obj CMakeFiles/linrtos.dir/src/rtos_sem.c.obj CMakeFiles/linrtos.dir/src/rtos_mutex.c.obj CMakeFiles/linrtos.dir/src/rtos_queue.c.obj CMakeFiles/linrtos.dir/src/rtos_event.c.obj CMakeFiles/linrtos.dir/src/rtos_timer.c.obj CMakeFiles/linrtos.dir/src/port/cortex_m/rtos_port.c.obj CMakeFiles/linrtos.dir/src/port/cortex_m/rtos_port_asm.S.obj
+/usr/bin/arm-none-eabi-ranlib liblinrtos.a
