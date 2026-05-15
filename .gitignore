@@ -1,0 +1,16 @@
+# Build artifacts
+build/
+*.elf
+*.o
+*.obj
+*.d
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.log
+*.swp
+*~
