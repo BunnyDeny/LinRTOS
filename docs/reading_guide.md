@@ -356,17 +356,15 @@ uint32_t rtos_port_enter_critical(void)
 ```c
 void rtos_port_exit_critical(uint32_t state)
 {
-    if (!state) {            /* 如果进入前中断就是开的 */
-        __asm volatile (
-            "cpsie i\n"      /* 开中断！（Enable IRQ） */
-            :::
-            "memory"
-        );
-    }
+    __asm volatile (
+        "msr primask, %0\n"   /* 直接把原来的 PRIMASK 值写回去 */
+        :: "r" (state)
+        : "memory"
+    );
 }
 ```
 
-**人话翻译** 🗣️：如果进临界区之前中断就是开着的，现在才打开；如果本来就是关的（比如中断里又进了临界区），就别乱开！
+**人话翻译** 🗣️：把进入临界区前保存的 PRIMASK 旧值，原样写回寄存器。进入前是开的就是开的，是关的就是关的——**精确恢复**，不瞎猜！
 
 **使用方式**（宏包装）：
 

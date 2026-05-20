@@ -63,13 +63,11 @@ uint32_t rtos_port_enter_critical(void)
 
 void rtos_port_exit_critical(uint32_t state)
 {
-    if (!state) {
-        __asm volatile (
-            "cpsie i\n"
-            :::
-            "memory"
-        );
-    }
+    __asm volatile (
+        "msr primask, %0\n"
+        :: "r" (state)
+        : "memory"
+    );
 }
 
 /* ============================================================
