@@ -13,7 +13,7 @@
  * ⏱️ SysTick 中断入口（由用户启动文件调用）
  * ============================================================ */
 
-void SysTick_Handler(void);
+void SysTick_Handler(void) __attribute__((weak));
 
 void SysTick_Handler(void)
 {
@@ -26,6 +26,11 @@ void SysTick_Handler(void)
 
 void rtos_tick_handler(void)
 {
+    /* 若内核尚未初始化（如 HAL_Init 阶段 SysTick 已使能），直接返回 */
+    if (g_kernel.ready_list[0].next == NULL) {
+        return;
+    }
+
     RTOS_ENTER_CRITICAL();
 
     g_kernel.tick_count++;

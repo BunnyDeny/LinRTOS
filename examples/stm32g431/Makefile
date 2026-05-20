@@ -42,6 +42,16 @@ Core/Src/dma.c \
 Core/Src/usart.c \
 Core/Src/stm32g4xx_it.c \
 Core/Src/stm32g4xx_hal_msp.c \
+Core/Src/linrtos_sys.c \
+../../src/rtos_sched.c \
+../../src/rtos_task.c \
+../../src/rtos_tick.c \
+../../src/rtos_sem.c \
+../../src/rtos_mutex.c \
+../../src/rtos_queue.c \
+../../src/rtos_event.c \
+../../src/rtos_timer.c \
+../../src/port/cortex_m/rtos_port.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_pwr_ex.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart_ex.c \
@@ -66,7 +76,8 @@ ASM_SOURCES =  \
 startup_stm32g431xx.s
 
 # ASMM sources
-ASMM_SOURCES = 
+ASMM_SOURCES =  \
+../../src/port/cortex_m/rtos_port_asm.S
 
 
 
@@ -124,7 +135,8 @@ C_INCLUDES =  \
 -IDrivers/STM32G4xx_HAL_Driver/Inc \
 -IDrivers/STM32G4xx_HAL_Driver/Inc/Legacy \
 -IDrivers/CMSIS/Device/ST/STM32G4xx/Include \
--IDrivers/CMSIS/Include
+-IDrivers/CMSIS/Include \
+-I../../include
 
 
 # compile gcc flags
