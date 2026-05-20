@@ -43,11 +43,11 @@ include_directories(include)
 # ============================================================
 
 set(LINRTOS_SRC
-    src/rtos_sched.c
-    src/rtos_task.c
-    src/rtos_tick.c
-    src/port/cortex_m/rtos_port.c
-    src/port/cortex_m/rtos_port_asm.S
+    src/sched.c
+    src/task.c
+    src/tick.c
+    src/port/cortex_m/port.c
+    src/port/cortex_m/port_asm.S
 )
 
 # ============================================================

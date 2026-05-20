@@ -11,7 +11,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include "rtos_config.h"
+#include "config.h"
 
 #ifdef __cplusplus
 extern "C" {

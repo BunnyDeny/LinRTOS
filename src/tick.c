@@ -5,9 +5,9 @@
  * MIT License
  */
 
-#include "rtos.h"
-#include "rtos_kernel.h"
-#include "rtos_port.h"
+#include "linRTOS.h"
+#include "kernel.h"
+#include "port.h"
 
 /* ============================================================
  * ⏱️ SysTick 中断入口（由用户启动文件调用）

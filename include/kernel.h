@@ -8,9 +8,9 @@
 #ifndef RTOS_KERNEL_H
 #define RTOS_KERNEL_H
 
-#include "rtos_types.h"
-#include "rtos_list.h"
-#include "rtos_config.h"
+#include "types.h"
+#include "list.h"
+#include "config.h"
 
 #ifdef __cplusplus
 extern "C" {

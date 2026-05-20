@@ -17,21 +17,21 @@ LinRTOS 是一款面向 **ARM Cortex-M3/M4/M7** 的极简抢占式实时操作�
 LinRTOS/
 ├── include/            # 📌 对外 API 头文件
 │   ├── rtos.h          # 总入口
-│   ├── rtos_config.h   # 裁剪配置
-│   ├── rtos_task.h     # 任务管理
-│   ├── rtos_kernel.h   # 内核内部定义
-│   ├── rtos_list.h     # 双向链表
-│   ├── rtos_port.h     # 移植层接口
-│   ├── rtos_types.h    # 基础类型
-│   └── rtos_config.h   # 配置宏
+│   ├── config.h   # 裁剪配置
+│   ├── task.h     # 任务管理
+│   ├── kernel.h   # 内核内部定义
+│   ├── list.h     # 双向链表
+│   ├── port.h     # 移植层接口
+│   ├── types.h    # 基础类型
+│   └── config.h   # 配置宏
 ├── src/
-│   ├── rtos_sched.c    # 调度器 + 就绪队列（O(1) 位图）
-│   ├── rtos_task.c     # 任务生命周期 + TCB 静态池
-│   ├── rtos_tick.c     # SysTick + 延时队列
+│   ├── sched.c    # 调度器 + 就绪队列（O(1) 位图）
+│   ├── task.c     # 任务生命周期 + TCB 静态池
+│   ├── tick.c     # SysTick + 延时队列
 │   └── port/
 │       └── cortex_m/
-│           ├── rtos_port.c     # SysTick 初始化 + 临界区 + 栈帧
-│           └── rtos_port_asm.S # PendSV + SVC 上下文切换
+│           ├── port.c     # SysTick 初始化 + 临界区 + 栈帧
+│           └── port_asm.S # PendSV + SVC 上下文切换
 ├── examples/
 │   ├── stm32g431/      # STM32G431CBUx 真实硬件示例
 │   └── ...
@@ -90,9 +90,9 @@ target_link_libraries(your_firmware PRIVATE linrtos)
 
 | 向量 | 说明 |
 |------|------|
-| `SysTick_Handler` | 系统节拍（位于 `src/rtos_tick.c`） |
-| `PendSV_Handler`  | 上下文切换（位于 `src/port/cortex_m/rtos_port_asm.S`） |
-| `SVC_Handler`     | 首次任务启动（位于 `src/port/cortex_m/rtos_port_asm.S`） |
+| `SysTick_Handler` | 系统节拍（位于 `src/tick.c`） |
+| `PendSV_Handler`  | 上下文切换（位于 `src/port/cortex_m/port_asm.S`） |
+| `SVC_Handler`     | 首次任务启动（位于 `src/port/cortex_m/port_asm.S`） |
 
 ### 2️⃣ 编写任务
 
@@ -143,7 +143,7 @@ LinRTOS 的移植层集中在 `src/port/cortex_m/`。若你的芯片已包含 Co
 | `rtos_port_init_systick()` | 初始化系统 tick 定时器 |
 | `rtos_port_start_first_task()` | 触发 SVC 或等效机制启动第一个任务 |
 
-已在 `src/port/cortex_m/rtos_port.c` 与 `rtos_port_asm.S` 中提供参考实现。
+已在 `src/port/cortex_m/port.c` 与 `port_asm.S` 中提供参考实现。
 
 > 📖 **实战参考**：完整的 STM32G431CBUx 真实硬件移植记录（含 Makefile 集成、HAL 兼容、HardFault 排查与修复）请参阅 [`docs/porting_stm32g431.md`](docs/porting_stm32g431.md)。  
 > 🚨 **常见陷阱**：QEMU 正常但真机 HardFault？可能是 PendSV 优先级未设对！请参阅 [`docs/pendsv_priority_trap.md`](docs/pendsv_priority_trap.md)。
@@ -175,7 +175,7 @@ int        rtos_scheduler_is_running(void);
 
 ## ⚙️ 配置裁剪
 
-编辑 `include/rtos_config.h` 或在编译时通过 `-D` 覆盖：
+编辑 `include/config.h` 或在编译时通过 `-D` 覆盖：
 
 | 宏 | 默认值 | 说明 |
 |----|:------:|------|

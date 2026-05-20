@@ -4,7 +4,7 @@
 
 #include "stm32g4xx_hal.h"
 #include "usart.h"
-#include "rtos_kernel.h"
+#include "kernel.h"
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>

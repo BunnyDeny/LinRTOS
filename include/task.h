@@ -8,7 +8,7 @@
 #ifndef RTOS_TASK_H
 #define RTOS_TASK_H
 
-#include "rtos_types.h"
+#include "types.h"
 
 #ifdef __cplusplus
 extern "C" {

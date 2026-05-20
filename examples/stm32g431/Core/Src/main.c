@@ -10,7 +10,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "usart.h"
-#include "rtos.h"
+#include "linRTOS.h"
 
 /* USER CODE BEGIN PV */
 static uint32_t task_high_stack[128];

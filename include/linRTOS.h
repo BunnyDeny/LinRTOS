@@ -8,9 +8,9 @@
 #ifndef RTOS_H
 #define RTOS_H
 
-#include "rtos_types.h"
-#include "rtos_config.h"
-#include "rtos_task.h"
+#include "types.h"
+#include "config.h"
+#include "task.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,7 +33,7 @@ void rtos_scheduler_start(void);
 #define RTOS_EXIT_CRITICAL()    \
     rtos_port_exit_critical(_critical_state)
 
-/* 函数声明来自 rtos_port.h */
+/* 函数声明来自 port.h */
 uint32_t rtos_port_enter_critical(void);
 void rtos_port_exit_critical(uint32_t state);
 

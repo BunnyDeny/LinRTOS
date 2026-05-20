@@ -48,14 +48,14 @@ examples/stm32g431/
 # 添加 LinRTOS 内核源文件
 C_SOURCES += \
 Core/Src/linrtos_sys.c \
-../../src/rtos_sched.c \
-../../src/rtos_task.c \
-../../src/rtos_tick.c \
-../../src/port/cortex_m/rtos_port.c
+../../src/sched.c \
+../../src/task.c \
+../../src/tick.c \
+../../src/port/cortex_m/port.c
 
 # 添加 LinRTOS 汇编文件（上下文切换）
 ASMM_SOURCES += \
-../../src/port/cortex_m/rtos_port_asm.S
+../../src/port/cortex_m/port_asm.S
 
 # 添加头文件包含路径
 C_INCLUDES += -I../../include
@@ -81,7 +81,7 @@ MCU = $(CPU) $(FPU) $(FLOAT-ABI)
 ```c
 #include "stm32g4xx_hal.h"
 #include "usart.h"
-#include "rtos_kernel.h"
+#include "kernel.h"
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -140,7 +140,7 @@ void rtos_port_set_core_clock(uint32_t clock_hz)
 .thumb_set PendSV_Handler, Default_Handler
 ```
 
-LinRTOS 的 `rtos_port_asm.S` 中定义了**强符号**（strong symbol）`SVC_Handler` 和 `PendSV_Handler`，用于首次任务启动和上下文切换。
+LinRTOS 的 `port_asm.S` 中定义了**强符号**（strong symbol）`SVC_Handler` 和 `PendSV_Handler`，用于首次任务启动和上下文切换。
 
 然而，CubeMX 生成的 `stm32g4xx_it.c` 中也定义了**强符号**的 `SVC_Handler`、`PendSV_Handler` 和 `SysTick_Handler`：
 
@@ -162,7 +162,7 @@ void SysTick_Handler(void) { HAL_IncTick(); }
 
 保留其他外设中断（如 `USART3_IRQHandler`、`DMA1_Channel1_IRQHandler` 等）不变。
 
-`SysTick_Handler` 的定义已迁移到 `linrtos_sys.c`；`SVC_Handler` 和 `PendSV_Handler` 由 `rtos_port_asm.S` 的强符号接管。
+`SysTick_Handler` 的定义已迁移到 `linrtos_sys.c`；`SVC_Handler` 和 `PendSV_Handler` 由 `port_asm.S` 的强符号接管。
 
 ---
 
@@ -225,7 +225,7 @@ int main(void)
 
 HAL 的 `HAL_Init()` 会提前使能 SysTick。此时 LinRTOS 内核尚未初始化（`g_kernel.ready_list` 为空），如果 `rtos_tick_handler()` 被调用，会访问空指针。
 
-在 `src/rtos_tick.c` 中添加守卫：
+在 `src/tick.c` 中添加守卫：
 
 ```c
 void rtos_tick_handler(void)

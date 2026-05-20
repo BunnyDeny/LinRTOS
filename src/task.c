@@ -6,9 +6,9 @@
  */
 
 #include <string.h>
-#include "rtos.h"
-#include "rtos_kernel.h"
-#include "rtos_port.h"
+#include "linRTOS.h"
+#include "kernel.h"
+#include "port.h"
 
 extern volatile struct rtos_tcb *rtos_current_tcb;
 

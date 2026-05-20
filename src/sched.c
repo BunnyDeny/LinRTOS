@@ -6,9 +6,9 @@
  */
 
 #include <string.h>
-#include "rtos.h"
-#include "rtos_kernel.h"
-#include "rtos_port.h"
+#include "linRTOS.h"
+#include "kernel.h"
+#include "port.h"
 
 /* ============================================================
  * 🏭 全局状态

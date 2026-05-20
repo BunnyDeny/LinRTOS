@@ -6,9 +6,9 @@
  */
 
 #include <stdint.h>
-#include "rtos_port.h"
-#include "rtos_kernel.h"
-#include "rtos_task.h"
+#include "port.h"
+#include "kernel.h"
+#include "task.h"
 
 /* ============================================================
  * ⚡ SysTick 初始化

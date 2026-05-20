@@ -43,10 +43,10 @@ Core/Src/usart.c \
 Core/Src/stm32g4xx_it.c \
 Core/Src/stm32g4xx_hal_msp.c \
 Core/Src/linrtos_sys.c \
-../../src/rtos_sched.c \
-../../src/rtos_task.c \
-../../src/rtos_tick.c \
-../../src/port/cortex_m/rtos_port.c \
+../../src/sched.c \
+../../src/task.c \
+../../src/tick.c \
+../../src/port/cortex_m/port.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_pwr_ex.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart_ex.c \
@@ -72,7 +72,7 @@ startup_stm32g431xx.s
 
 # ASMM sources
 ASMM_SOURCES =  \
-../../src/port/cortex_m/rtos_port_asm.S
+../../src/port/cortex_m/port_asm.S
 
 
 

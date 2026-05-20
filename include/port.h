@@ -9,7 +9,7 @@
 #define RTOS_PORT_H
 
 #include <stdint.h>
-#include "rtos_kernel.h"
+#include "kernel.h"
 
 #ifdef __cplusplus
 extern "C" {
