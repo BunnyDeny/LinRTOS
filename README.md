@@ -162,7 +162,8 @@ make
 
 LinRTOS 的移植层集中在 `src/port/cortex_m/`。若你的芯片已包含 Cortex-M3/M4/M7 内核，通常**无需修改**即可运行。
 
-> 📖 **实战参考**：完整的 STM32G431CBUx 真实硬件移植记录（含 Makefile 集成、HAL 兼容、HardFault 排查与修复）请参阅 [`docs/porting_stm32g431.md`](docs/porting_stm32g431.md)。
+> 📖 **实战参考**：完整的 STM32G431CBUx 真实硬件移植记录（含 Makefile 集成、HAL 兼容、HardFault 排查与修复）请参阅 [`docs/porting_stm32g431.md`](docs/porting_stm32g431.md)。  
+> 🚨 **常见陷阱**：QEMU 正常但真机 HardFault？可能是 PendSV 优先级未设对！请参阅 [`docs/pendsv_priority_trap.md`](docs/pendsv_priority_trap.md)。
 
 若需要移植到其他架构，需实现以下接口：
 
