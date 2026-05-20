@@ -46,11 +46,6 @@ set(LINRTOS_SRC
     src/rtos_sched.c
     src/rtos_task.c
     src/rtos_tick.c
-    src/rtos_sem.c
-    src/rtos_mutex.c
-    src/rtos_queue.c
-    src/rtos_event.c
-    src/rtos_timer.c
     src/port/cortex_m/rtos_port.c
     src/port/cortex_m/rtos_port_asm.S
 )
@@ -60,8 +55,3 @@ set(LINRTOS_SRC
 # ============================================================
 
 add_library(linrtos STATIC ${LINRTOS_SRC})
-
-# 可选：编译示例（若存在 examples/CMakeLists.txt）
-if(EXISTS "${CMAKE_SOURCE_DIR}/examples/CMakeLists.txt")
-    add_subdirectory(examples)
-endif()

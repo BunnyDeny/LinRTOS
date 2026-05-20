@@ -37,36 +37,6 @@
 #define RTOS_TIME_SLICE_TICKS       1
 #endif
 
-/* 是否启用互斥锁优先级继承 */
-#ifndef RTOS_ENABLE_PRIORITY_INHERITANCE
-#define RTOS_ENABLE_PRIORITY_INHERITANCE    1
-#endif
-
-/* 是否启用软件定时器 */
-#ifndef RTOS_ENABLE_SOFT_TIMER
-#define RTOS_ENABLE_SOFT_TIMER      1
-#endif
-
-/* 软件定时器任务优先级 */
-#ifndef RTOS_TIMER_TASK_PRIORITY
-#define RTOS_TIMER_TASK_PRIORITY    (RTOS_MAX_PRIORITIES - 2)
-#endif
-
-/* 软件定时器任务栈大小（字） */
-#ifndef RTOS_TIMER_TASK_STACK_SIZE
-#define RTOS_TIMER_TASK_STACK_SIZE  128
-#endif
-
-/* 是否启用事件标志组 */
-#ifndef RTOS_ENABLE_EVENT_GROUPS
-#define RTOS_ENABLE_EVENT_GROUPS    1
-#endif
-
-/* 是否启用队列/消息传递 */
-#ifndef RTOS_ENABLE_QUEUES
-#define RTOS_ENABLE_QUEUES          1
-#endif
-
 /* 是否启用空闲钩子 */
 #ifndef RTOS_ENABLE_IDLE_HOOK
 #define RTOS_ENABLE_IDLE_HOOK       0

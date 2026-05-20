@@ -26,17 +26,14 @@ struct rtos_tcb {
     uint32_t *stack_top;           /* 📍 栈顶（最高地址，初始化位置） */
     uint32_t  stack_size;          /* 📏 栈大小（字，uint32_t 个数） */
     uint32_t  priority;            /* 🔺 当前优先级（数值越大越高） */
-    uint32_t  base_priority;       /* 🔹 基础优先级（优先级继承后恢复用） */
     uint32_t  time_slice;          /* ⏱️ 剩余时间片 tick */
     rtos_task_state_t state;       /* 📊 当前状态 */
     char      name[RTOS_MAX_TASK_NAME_LEN];
 
     struct rtos_list_node ready_node;   /* 🔗 就绪队列链表节点 */
-    struct rtos_list_node delay_node;   /* 🔗 延时/阻塞队列链表节点 */
+    struct rtos_list_node delay_node;   /* 🔗 延时队列链表节点 */
 
     uint32_t  wake_tick;           /* ⏰ 唤醒时间（绝对tick） */
-    void     *blocking_obj;        /* 🚧 阻塞在哪个同步对象上 */
-    volatile rtos_err_t block_result; /* ✅ 阻塞结果（被唤醒原因） */
 };
 
 /* ============================================================
@@ -70,13 +67,7 @@ struct rtos_kernel {
     volatile uint8_t  is_running;    /* 调度器是否已启动 */
     volatile uint8_t  need_resched;  /* 标记需要调度 */
 
-    struct rtos_list_node delay_list;    /* 按 wake_tick 升序排列的阻塞队列 */
-
-#if RTOS_ENABLE_SOFT_TIMER
-    struct rtos_list_node timer_list;    /* 活跃软件定时器链表 */
-#endif
-
-    uint32_t padding;    /* 结构体对齐填充 */
+    struct rtos_list_node delay_list;    /* 按 wake_tick 升序排列的延时队列 */
 
 #if RTOS_ENABLE_IDLE_HOOK
     rtos_idle_hook_t idle_hook;
@@ -109,13 +100,8 @@ void rtos_sched(void);
 /* 请求调度（设置标志，在退出临界区或中断末尾触发） */
 void rtos_sched_yield(void);
 
-/* tick处理：更新延时队列、检查超时 */
+/* tick处理：更新延时队列 */
 void rtos_tick_handler(void);
-
-#if RTOS_ENABLE_SOFT_TIMER
-/* 软件定时器 tick 处理 */
-void rtos_timer_tick_handler(void);
-#endif
 
 #if RTOS_ENABLE_TIME_SLICING
 /* 时间片轮转 */

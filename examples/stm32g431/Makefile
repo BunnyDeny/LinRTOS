@@ -46,11 +46,6 @@ Core/Src/linrtos_sys.c \
 ../../src/rtos_sched.c \
 ../../src/rtos_task.c \
 ../../src/rtos_tick.c \
-../../src/rtos_sem.c \
-../../src/rtos_mutex.c \
-../../src/rtos_queue.c \
-../../src/rtos_event.c \
-../../src/rtos_timer.c \
 ../../src/port/cortex_m/rtos_port.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_pwr_ex.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart.c \

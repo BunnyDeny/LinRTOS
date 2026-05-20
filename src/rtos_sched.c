@@ -34,9 +34,6 @@ void rtos_kernel_init(void)
         rtos_list_init(&g_kernel.ready_list[i]);
     }
     rtos_list_init(&g_kernel.delay_list);
-#if RTOS_ENABLE_SOFT_TIMER
-    rtos_list_init(&g_kernel.timer_list);
-#endif
 }
 
 /* ============================================================

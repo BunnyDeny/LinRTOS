@@ -2,140 +2,78 @@
 /**
   ******************************************************************************
   * @file           : main.c
-  * @brief          : LinRTOS demo for STM32G431
+  * @brief          : LinRTOS 极简示例 —— 任务延时与优先级抢占调度
   ******************************************************************************
   */
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "dma.h"
 #include "usart.h"
-#include "gpio.h"
 #include "rtos.h"
 
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
-/* USER CODE END Includes */
-
-/* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN PTD */
-/* USER CODE END PTD */
-
-/* Private define ------------------------------------------------------------*/
-/* USER CODE BEGIN PD */
-/* USER CODE END PD */
-
-/* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-/* USER CODE END PM */
-
-/* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
+static uint32_t task_high_stack[128];
+static uint32_t task_low_stack[128];
+
+static volatile uint32_t s_high_count = 0;
+static volatile uint32_t s_low_count = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-/* USER CODE BEGIN PFP */
-/* USER CODE END PFP */
+static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 
-/* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-extern void debug_puts(const char *str);
 extern void debug_printf(const char *fmt, ...);
+/* USER CODE END 0 */
 
-static rtos_mutex_handle_t uart_mutex;
-
-/* ============================================================
- * 🪶 任务栈
- * ============================================================ */
-static uint32_t task_high_stack[256];
-static uint32_t task_low_stack[256];
-
-/* ============================================================
- * 📋 高优先级任务 — 快速心跳
- * ============================================================ */
+/* USER CODE BEGIN 1 */
 static void task_high(void *param)
 {
     (void)param;
-    int cnt = 0;
     for (;;) {
-        rtos_mutex_take(uart_mutex, RTOS_WAIT_FOREVER);
-        debug_printf("[HIGH] tick=%lu count=%d\r\n", (unsigned long)rtos_get_tick_count(), cnt++);
-        rtos_mutex_give(uart_mutex);
-
-        rtos_task_delay(500);   /* 500 ms */
+        s_high_count++;
+        debug_printf("[HIGH] tick=%lu count=%lu\r\n",
+                     (unsigned long)rtos_get_tick_count(),
+                     (unsigned long)s_high_count);
+        rtos_task_delay(500);
     }
 }
 
-/* ============================================================
- * 📋 低优先级任务 — 慢速心跳
- * ============================================================ */
 static void task_low(void *param)
 {
     (void)param;
-    int cnt = 0;
     for (;;) {
-        rtos_mutex_take(uart_mutex, RTOS_WAIT_FOREVER);
-        debug_printf("[LOW ] tick=%lu count=%d\r\n", (unsigned long)rtos_get_tick_count(), cnt++);
-        rtos_mutex_give(uart_mutex);
-
-        rtos_task_delay(1000);  /* 1000 ms */
+        s_low_count++;
+        debug_printf("[LOW ] tick=%lu count=%lu\r\n",
+                     (unsigned long)rtos_get_tick_count(),
+                     (unsigned long)s_low_count);
+        rtos_task_delay(1000);
     }
 }
+/* USER CODE END 1 */
 
-/* USER CODE END 0 */
-
-/**
-  * @brief  The application entry point.
-  * @retval int
-  */
 int main(void)
 {
-    /* USER CODE BEGIN 1 */
-    /* USER CODE END 1 */
-
-    /* MCU Configuration--------------------------------------------------------*/
     HAL_Init();
     SystemClock_Config();
 
-    /* 设置 PendSV 优先级为最低（15），防止在 SysTick 中抢占导致 MSP 栈帧被覆盖 */
+    /* 关键：将 PendSV 设为最低优先级，防止在 SysTick 中抢占导致 MSP 栈帧被破坏 */
     *(volatile uint8_t *)0xE000ED22 = 0xF0;
 
-    /* USER CODE BEGIN SysInit */
-    /* USER CODE END SysInit */
-
-    /* Initialize all configured peripherals */
     MX_GPIO_Init();
     MX_DMA_Init();
     MX_USART3_UART_Init();
 
-    /* USER CODE BEGIN 2 */
-    debug_puts("\r\n=== LinRTOS on STM32G431 ===\r\n");
-    debug_puts("Starting scheduler...\r\n");
-
-    rtos_mutex_create(&uart_mutex);
-
-    rtos_task_create(task_high, "high",
-                     task_high_stack, sizeof(task_high_stack) / sizeof(uint32_t),
-                     NULL, 2, NULL);
-
-    rtos_task_create(task_low, "low",
-                     task_low_stack, sizeof(task_low_stack) / sizeof(uint32_t),
-                     NULL, 1, NULL);
+    rtos_task_create(task_high, "high", task_high_stack, 128, NULL, 2, NULL);
+    rtos_task_create(task_low,  "low",  task_low_stack,  128, NULL, 1, NULL);
 
     rtos_scheduler_start();
-    /* USER CODE END 2 */
 
-    /* Infinite loop */
-    /* USER CODE BEGIN WHILE */
-    while (1)
-    {
-        /* USER CODE END WHILE */
-        /* USER CODE BEGIN 3 */
-    }
-    /* USER CODE END 3 */
+    /* 永远不会到达 */
+    for (;;);
 }
 
 /**
@@ -176,20 +114,19 @@ void SystemClock_Config(void)
     }
 }
 
-/**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
+static void MX_DMA_Init(void)
+{
+    __HAL_RCC_DMAMUX1_CLK_ENABLE();
+    __HAL_RCC_DMA1_CLK_ENABLE();
+}
+
+static void MX_GPIO_Init(void)
+{
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+}
+
 void Error_Handler(void)
 {
     __disable_irq();
-    while (1)
-    {
-    }
+    while (1) {}
 }
-
-#ifdef USE_FULL_ASSERT
-void assert_failed(uint8_t *file, uint32_t line)
-{
-}
-#endif /* USE_FULL_ASSERT */

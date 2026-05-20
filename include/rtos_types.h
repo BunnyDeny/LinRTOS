@@ -22,14 +22,8 @@ extern "C" {
  * ============================================================ */
 
 typedef void *rtos_task_handle_t;
-typedef void *rtos_sem_handle_t;
-typedef void *rtos_mutex_handle_t;
-typedef void *rtos_queue_handle_t;
-typedef void *rtos_timer_handle_t;
-typedef void *rtos_event_group_handle_t;
 
 typedef void (*rtos_task_func_t)(void *param);
-typedef void (*rtos_timer_callback_t)(rtos_timer_handle_t timer);
 typedef void (*rtos_idle_hook_t)(void);
 
 /* ============================================================

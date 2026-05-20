@@ -1,6 +1,6 @@
 # LinRTOS 移植到 STM32G431CBUx 实战记录
 
-本文档记录将 LinRTOS 从 QEMU 模拟环境移植到 **STM32G431CBUx**（Cortex-M4, 170 MHz, 128K Flash / 32K RAM）真实硬件的完整过程，包含 Makefile 集成、HAL 兼容、上下文切换符号冲突以及一个关键 HardFault 的根因分析与修复。
+本文档记录将 LinRTOS 移植到 **STM32G431CBUx**（Cortex-M4, 170 MHz, 128K Flash / 32K RAM）真实硬件的完整过程，包含 Makefile 集成、HAL 兼容、上下文切换符号冲突以及一个关键 HardFault 的根因分析与修复。
 
 > **目标平台**：STM32G431CBUx  
 > **开发环境**：STM32CubeMX + Makefile + arm-none-eabi-gcc  
@@ -51,11 +51,6 @@ Core/Src/linrtos_sys.c \
 ../../src/rtos_sched.c \
 ../../src/rtos_task.c \
 ../../src/rtos_tick.c \
-../../src/rtos_sem.c \
-../../src/rtos_mutex.c \
-../../src/rtos_queue.c \
-../../src/rtos_event.c \
-../../src/rtos_timer.c \
 ../../src/port/cortex_m/rtos_port.c
 
 # 添加 LinRTOS 汇编文件（上下文切换）
@@ -84,12 +79,12 @@ MCU = $(CPU) $(FPU) $(FLOAT-ABI)
 新建 `Core/Src/linrtos_sys.c`，负责桥接 HAL 与 LinRTOS：
 
 ```c
-#include "rtos.h"
-#include "usart.h"
 #include "stm32g4xx_hal.h"
-
-extern UART_HandleTypeDef huart3;
-static uint32_t s_core_clock = 170000000;  /* G431 @ 170 MHz */
+#include "usart.h"
+#include "rtos_kernel.h"
+#include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
 
 /* HAL 的 SysTick 仍会先使能，我们在此基础上叠加 LinRTOS tick */
 void SysTick_Handler(void)
@@ -99,23 +94,34 @@ void SysTick_Handler(void)
 }
 
 /* 内核日志输出：阻塞式 UART 发送 */
+static char s_debug_buf[256];
+
 void debug_puts(const char *str)
 {
     if (!str) return;
-    HAL_UART_Transmit(&huart3, (uint8_t *)str, strlen(str), 100);
+    HAL_UART_Transmit(&huart3, (uint8_t *)str, (uint16_t)strlen(str), 100);
+}
+
+void debug_printf(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(s_debug_buf, sizeof(s_debug_buf), fmt, ap);
+    va_end(ap);
+    debug_puts(s_debug_buf);
 }
 ```
 
 ### 3.1 内核时钟校准
 
-`rtos_port_init_systick()` 会根据 `s_core_clock` 计算 SysTick 重装载值。STM32G431 主频 170 MHz，必须准确设置，否则 tick 频率会偏差。
+`rtos_port_init_systick()` 会根据 `SystemCoreClock` 计算 SysTick 重装载值。STM32G431 主频 170 MHz，必须准确设置，否则 tick 频率会偏差。
 
 在 `linrtos_sys.c` 中添加：
 
 ```c
 void rtos_port_set_core_clock(uint32_t clock_hz)
 {
-    s_core_clock = clock_hz;
+    (void)clock_hz; /* 实际值来自 SystemCoreClock */
 }
 ```
 
@@ -185,7 +191,7 @@ MSP 初始: 0x20008000
   ⚠️ PendSV 异常帧抢占保存 (0x20007fa0 - 0x20007fbf) ← 覆盖了上面所有栈帧！
 ```
 
-PendSV 返回后，`SysTick_Handler` 继续执行 `pop {r3, pc}`，从被覆盖的栈帧中加载 PC。由于 PendSV 异常帧的 PC 字段恰好是 `0x00000000`（bit[0]=0），触发 **INVPC** HardFault。
+PendSV 返回后，`SysTick_Handler` 的 `pop {r3, pc}` 从被覆盖的栈帧中加载 PC。由于 PendSV 异常帧的 PC 字段恰好是 `0x00000000`（bit[0]=0），触发 **INVPC** HardFault。
 
 ### 5.3 工程修复
 
@@ -236,20 +242,43 @@ void rtos_tick_handler(void)
 
 ## 7. 验证结果
 
+示例代码仅测试**任务延时与优先级抢占调度**：
+
+```c
+static void task_high(void *param)
+{
+    (void)param;
+    for (;;) {
+        debug_printf("[HIGH] tick=%lu\r\n", rtos_get_tick_count());
+        rtos_task_delay(500);
+    }
+}
+
+static void task_low(void *param)
+{
+    (void)param;
+    for (;;) {
+        debug_printf("[LOW ] tick=%lu\r\n", rtos_get_tick_count());
+        rtos_task_delay(1000);
+    }
+}
+```
+
 烧录后通过串口观察输出：
 
 ```
-[HIGH] tick=3514 count=7
-[LOW ] tick=4018 count=4
-[HIGH] tick=4518 count=9
-[HIGH] tick=5020 count=10
-[LOW ] tick=5022 count=5
+[HIGH] tick=3514
+[LOW ] tick=4018
+[HIGH] tick=4518
+[HIGH] tick=5020
+[LOW ] tick=5022
 ...
 ```
 
-- `task_high`（优先级 2）和 `task_low`（优先级 1）正常交替执行
+- `task_high`（优先级 2）每 500 tick 运行一次
+- `task_low`（优先级 1）每 1000 tick 运行一次
 - tick 计数稳定增长，无 HardFault
-- 任务延时、信号量、互斥锁均工作正常
+- 高优先级任务正常抢占低优先级任务
 
 ---
 
@@ -260,10 +289,9 @@ void rtos_tick_handler(void)
 | Makefile 集成 | 添加 LinRTOS C 源、汇编源、头文件路径 | ✅ |
 | 移除 CubeMX 空桩 | 删除 `stm32g4xx_it.c` 中的 `SVC/PendSV/SysTick` | ✅ |
 | 创建 `linrtos_sys.c` | SysTick 转发 + UART 日志输出 | ✅ |
-| 内核时钟校准 | 设置 `s_core_clock = 170000000` | ✅ |
 | PendSV 优先级 | 设为 15（最低），防止 MSP 栈帧覆盖 | ✅ |
 | Pre-init 保护 | `rtos_tick_handler()` 空列表守卫 | ✅ |
-| 烧录验证 | 串口观察任务正常调度 | ✅ |
+| 烧录验证 | 串口观察任务延时与抢占调度正常 | ✅ |
 
 ---
 

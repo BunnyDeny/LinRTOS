@@ -119,7 +119,6 @@ rtos_err_t rtos_task_create(rtos_task_func_t func, const char *name,
     tcb->stack_size = stack_depth_words;
     tcb->stack_top = stack_buffer + stack_depth_words;
     tcb->priority = priority;
-    tcb->base_priority = priority;
     tcb->time_slice = RTOS_TIME_SLICE_TICKS;
     tcb->state = RTOS_TASK_READY;
 
@@ -238,7 +237,6 @@ void rtos_task_delay(uint32_t ticks)
     RTOS_ENTER_CRITICAL();
     tcb->wake_tick = g_kernel.tick_count + ticks;
     tcb->state = RTOS_TASK_BLOCKED;
-    tcb->block_result = RTOS_OK;
     rtos_task_unready(tcb);
 
     /* 按 wake_tick 升序插入延时队列 */
@@ -316,7 +314,6 @@ void rtos_task_set_priority(rtos_task_handle_t task, uint32_t priority)
     }
 
     RTOS_ENTER_CRITICAL();
-    tcb->base_priority = priority;
     tcb->priority = priority;
 
     if (tcb->state == RTOS_TASK_READY || tcb->state == RTOS_TASK_RUNNING) {
@@ -378,7 +375,6 @@ static void rtos_create_idle_task(void)
     s_idle_tcb.stack_size = sizeof(s_idle_stack) / sizeof(uint32_t);
     s_idle_tcb.stack_top = s_idle_stack + s_idle_tcb.stack_size;
     s_idle_tcb.priority = 0;
-    s_idle_tcb.base_priority = 0;
     s_idle_tcb.time_slice = RTOS_TIME_SLICE_TICKS;
     s_idle_tcb.state = RTOS_TASK_READY;
 

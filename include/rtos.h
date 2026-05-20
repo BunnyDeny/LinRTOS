@@ -11,11 +11,6 @@
 #include "rtos_types.h"
 #include "rtos_config.h"
 #include "rtos_task.h"
-#include "rtos_sem.h"
-#include "rtos_mutex.h"
-#include "rtos_queue.h"
-#include "rtos_timer.h"
-#include "rtos_event.h"
 
 #ifdef __cplusplus
 extern "C" {
