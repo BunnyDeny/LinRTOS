@@ -16,6 +16,24 @@
     .extern rtos_current_tcb
     .extern rtos_next_tcb
 
+#include "config.h"
+
+/* ============================================================
+ * FPU 编译器一致性检查
+ * ============================================================
+ *
+ * 若用户在 config.h 中显式开启了 RTOS_ENABLE_FPU，但编译器
+ * 并没有使用 hard-float ABI（未定义 __VFP_FP__），则直接
+ * 编译报错，避免静默失效导致 FPU 寄存器在上下文切换中不被
+ * 保存/恢复。
+ * ============================================================ */
+#if (RTOS_ENABLE_FPU != 0)
+    #if !defined(__VFP_FP__)
+        #error "RTOS_ENABLE_FPU is enabled but compiler is not using hard-float ABI. \
+                Please add -mfloat-abi=hard -mfpu=fpv4-sp-d16 (or fpv5-d16) to your CFLAGS."
+    #endif
+#endif
+
     .text
 
 /* ============================================================
@@ -27,7 +45,10 @@
  */
     .thumb_func
 SVC_Handler:
-    /* 设置 CONTROL.SPSEL = 1，线程模式使用 PSP */
+    /* 设置 CONTROL.SPSEL = 1，线程模式使用 PSP。
+     * 写入 0x02 同时隐含 CONTROL.FPCA = 0，确保首次启动的
+     * 任务使用基本异常帧（兼容 RT-Thread 清 FPCA 做法）。
+     */
     movs    r0, #0x02
     msr     control, r0
     isb
@@ -37,16 +58,17 @@ SVC_Handler:
     ldr     r1, [r3]
     ldr     r0, [r1]            /* r0 = current_task->stack_ptr */
 
-    /* 恢复软件保存的寄存器 R4-R11 */
-    ldmia   r0!, {r4-r11}
+    /* 恢复软件保存的寄存器 R4-R11 以及 EXC_RETURN(LR)。
+     * 伪造栈帧中已预置 EXC_RETURN=0xFFFFFFFD，因此 lr 恢复后
+     * 即为正确的基本帧返回码，bx lr 可安全启动首个任务。
+     */
+    ldmia   r0!, {r4-r11, lr}
 
     /* 更新 PSP，使其指向硬件自动保存的帧（R0-R3,R12,LR,PC,xPSR） */
     msr     psp, r0
     isb
 
-    /* EXC_RETURN = 0xFFFFFFFD：返回线程模式，使用 PSP */
-    ldr     r0, =0xFFFFFFFD
-    bx      r0
+    bx      lr
 
 /* ============================================================
  * 🔄 PendSV Handler —— 上下文切换
@@ -54,12 +76,31 @@ SVC_Handler:
  *
  * 由 rtos_port_request_switch() 置位 PENDSVSET 触发。
  * PendSV 优先级应设为最低，确保在所有其他中断处理完毕后执行。
+ *
+ * FPU 上下文保存策略（FreeRTOS / RT-Thread 标准做法）：
+ *   - 硬件 Lazy Stacking 自动处理 S0-S15 + FPSCR
+ *   - 软件仅负责保存/恢复 S16-S31（callee-saved）
+ *   - 通过 EXC_RETURN[4] 判断当前任务是否使用了浮点上下文
  */
     .thumb_func
 PendSV_Handler:
     /* ---- 保存当前任务上下文 ---- */
     mrs     r0, psp             /* r0 = 当前 PSP */
-    stmdb   r0!, {r4-r11}       /* 压入 R4-R11 */
+
+#if (RTOS_ENABLE_FPU != 0)
+    /* 若当前任务使用了 FPU（EXC_RETURN[4] == 0），
+     * 将 S16-S31 压入当前任务栈（vstmdb = decrement before store）。
+     */
+    tst     lr, #0x10           /* LR[4] == 0 ? FPU active? */
+    it      eq
+    vstmdbeq r0!, {s16-s31}
+#endif
+
+    /* 保存 R4-R11 + EXC_RETURN(LR)。
+     * LR 中保存了当前任务的 EXC_RETURN 值，其中 bit[4] 标记了
+     * 该任务是否使用了浮点上下文，必须在恢复时原样交还。
+     */
+    stmdb   r0!, {r4-r11, lr}
 
     /* rtos_current_tcb->stack_ptr = r0 */
     ldr     r3, =rtos_current_tcb
@@ -79,16 +120,27 @@ PendSV_Handler:
     /* r0 = new_current_task->stack_ptr */
     ldr     r0, [r2]
 
-    /* 恢复 R4-R11 */
-    ldmia   r0!, {r4-r11}
+    /* 恢复 R4-R11 + EXC_RETURN */
+    ldmia   r0!, {r4-r11, lr}
+
+#if (RTOS_ENABLE_FPU != 0)
+    /* 若即将恢复的任务使用了 FPU（EXC_RETURN[4] == 0），
+     * 从其栈中弹出 S16-S31（vldmia = increment after load）。
+     */
+    tst     lr, #0x10
+    it      eq
+    vldmiaeq r0!, {s16-s31}
+#endif
 
     /* 更新 PSP */
     msr     psp, r0
     isb
 
-    /* 异常返回，线程模式，PSP */
-    ldr     r0, =0xFFFFFFFD
-    bx      r0
+    /* 使用任务自己保存的 EXC_RETURN（LR）返回。
+     * 硬件根据 LR[4] 自动决定恢复基本帧还是扩展帧，
+     * 并自动恢复 S0-S15 + FPSCR（若扩展帧）。
+     */
+    bx      lr
 
 /* ============================================================
  * ▶️ rtos_port_start_first_task

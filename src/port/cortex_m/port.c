@@ -127,6 +127,13 @@ uint32_t *rtos_port_init_stack(uint32_t *stack_top,
     stack_top--;                    /* R0 */
     *stack_top = (uint32_t)param;
 
+    /* EXC_RETURN: 每个任务维护自己的异常返回码。
+     * 新任务默认使用基本帧 (0xFFFFFFFD)。任务首次运行后若使用 FPU，
+     * PendSV 会将实际 EXC_RETURN (0xFFFFFFED) 保存到此处。
+     */
+    stack_top--;
+    *stack_top = 0xFFFFFFFD;        /* EXC_RETURN */
+
     /* 软件保存部分 */
     stack_top--;                    /* R11 */
     *stack_top = 0;

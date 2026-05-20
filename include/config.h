@@ -27,6 +27,11 @@
 #define RTOS_MAX_TASK_NAME_LEN  16
 #endif
 
+/* 是否启用 FPU 支持（Cortex-M4F / M7 等带硬件 FPU 的内核） */
+#ifndef RTOS_ENABLE_FPU
+#define RTOS_ENABLE_FPU             1
+#endif
+
 /* 是否启用时间片轮转（同优先级任务之间） */
 #ifndef RTOS_ENABLE_TIME_SLICING
 #define RTOS_ENABLE_TIME_SLICING    1
