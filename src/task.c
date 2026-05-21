@@ -24,6 +24,30 @@ static struct rtos_tcb s_tcb_pool[RTOS_MAX_TASKS];
 static uint32_t s_tcb_used_mask = 0;
 
 /* ============================================================
+ * 🪶 空闲任务
+ * ============================================================ */
+
+#ifndef RTOS_IDLE_STACK_SIZE
+#define RTOS_IDLE_STACK_SIZE    64
+#endif
+
+static uint32_t s_idle_stack[RTOS_IDLE_STACK_SIZE];
+static struct rtos_tcb s_idle_tcb;
+
+void rtos_idle_task(void *param)
+{
+    (void)param;
+    for (;;) {
+#if RTOS_ENABLE_IDLE_HOOK
+        if (g_kernel.idle_hook) {
+            g_kernel.idle_hook();
+        }
+#endif
+        __asm volatile ("wfi");
+    }
+}
+
+/* ============================================================
  * 🔧 TCB 分配与释放
  * ============================================================ */
 
@@ -52,42 +76,6 @@ static void rtos_tcb_free(struct rtos_tcb *tcb)
         RTOS_ENTER_CRITICAL();
         s_tcb_used_mask &= ~(1U << idx);
         RTOS_EXIT_CRITICAL();
-    }
-}
-
-/* ============================================================
- * 🪶 空闲任务
- * ============================================================ */
-
-#ifndef RTOS_IDLE_STACK_SIZE
-#define RTOS_IDLE_STACK_SIZE    64
-#endif
-
-static uint32_t s_idle_stack[RTOS_IDLE_STACK_SIZE];
-static struct rtos_tcb s_idle_tcb;
-
-void rtos_idle_task(void *param)
-{
-    (void)param;
-    for (;;) {
-        /* 每次只清理一个已终止的任务，避免长时间关中断 */
-        RTOS_ENTER_CRITICAL();
-        if (!rtos_list_is_empty(&g_kernel.terminated_list)) {
-            struct rtos_list_node *node = g_kernel.terminated_list.next;
-            rtos_list_remove(node);
-            struct rtos_tcb *tcb = rtos_list_entry(node, struct rtos_tcb, delay_node);
-            RTOS_EXIT_CRITICAL();
-            rtos_tcb_free(tcb);
-            continue;
-        }
-        RTOS_EXIT_CRITICAL();
-
-#if RTOS_ENABLE_IDLE_HOOK
-        if (g_kernel.idle_hook) {
-            g_kernel.idle_hook();
-        }
-#endif
-        __asm volatile ("wfi");
     }
 }
 
@@ -180,8 +168,6 @@ void rtos_task_delete(rtos_task_handle_t task)
         while (g_kernel.sched_lock > 0) {
             rtos_sched_unlock();
         }
-        /* 将自删任务挂到待清理列表，由空闲任务回收 TCB */
-        rtos_list_insert_before(&g_kernel.terminated_list, &tcb->delay_node);
         RTOS_EXIT_CRITICAL();
         rtos_sched();
         /* 理论上不会执行到这里 */

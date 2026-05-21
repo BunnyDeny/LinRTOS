@@ -14,12 +14,12 @@
 #include <math.h>
 
 /* USER CODE BEGIN PV */
-static uint32_t task_test_stack[128];
+static uint32_t task_high_stack[256];
 static uint32_t task_low_stack[256];
 static uint32_t task_fp_a_stack[512];
 static uint32_t task_fp_b_stack[512];
 
-static volatile uint32_t s_test_count = 0;
+static volatile uint32_t s_high_count = 0;
 static volatile uint32_t s_low_count = 0;
 /* USER CODE END PV */
 
@@ -33,19 +33,16 @@ extern void debug_printf(const char *fmt, ...);
 /* USER CODE END 0 */
 
 /* USER CODE BEGIN 1 */
-/* ============================================================
- * 🔄 自删任务 —— 运行一次后自删，验证空闲任务回收 TCB
- * ============================================================ */
-static void task_test(void *param)
+static void task_high(void *param)
 {
     (void)param;
-    s_test_count++;
-    debug_printf("[TEST] run #%lu, tick=%lu\r\n",
-                 (unsigned long)s_test_count,
-                 (unsigned long)rtos_get_tick_count());
-    rtos_task_delay(300);
-    debug_printf("[TEST] self-delete\r\n");
-    rtos_task_delete(NULL);   /* 自删 */
+    for (;;) {
+        s_high_count++;
+        debug_printf("[HIGH] tick=%lu count=%lu\r\n",
+                     (unsigned long)rtos_get_tick_count(),
+                     (unsigned long)s_high_count);
+        rtos_task_delay(500);
+    }
 }
 
 static void task_low(void *param)
@@ -53,19 +50,9 @@ static void task_low(void *param)
     (void)param;
     for (;;) {
         s_low_count++;
-        debug_printf("[LOW ] tick=%lu count=%lu test_count=%lu\r\n",
+        debug_printf("[LOW ] tick=%lu count=%lu\r\n",
                      (unsigned long)rtos_get_tick_count(),
-                     (unsigned long)s_low_count,
-                     (unsigned long)s_test_count);
-        /* 周期性创建 task_test，验证空闲任务回收 TCB */
-        rtos_err_t err = rtos_task_create(task_test, "test",
-                                          task_test_stack, 128, NULL, 2, NULL);
-        if (err != RTOS_OK) {
-            debug_printf("[LOW ] create test FAILED! err=%d (pool exhausted?)\r\n",
-                         (int)err);
-        } else {
-            debug_printf("[LOW ] create test OK\r\n");
-        }
+                     (unsigned long)s_low_count);
         rtos_task_delay(1000);
     }
 }
@@ -129,10 +116,10 @@ int main(void)
     MX_DMA_Init();
     MX_USART3_UART_Init();
 
-    debug_printf("=== LinRTOS TCB Recycle Test Boot ===\r\n");
+    debug_printf("=== LinRTOS FPU Test Boot ===\r\n");
 
     rtos_task_create(task_fp_a, "fp_a", task_fp_a_stack, 256, NULL, 3, NULL);
-    rtos_task_create(task_test, "test", task_test_stack, 128, NULL, 2, NULL);
+    rtos_task_create(task_high, "high", task_high_stack, 128, NULL, 2, NULL);
     rtos_task_create(task_fp_b, "fp_b", task_fp_b_stack, 256, NULL, 2, NULL);
     rtos_task_create(task_low,  "low",  task_low_stack,  128, NULL, 1, NULL);
 
