@@ -96,7 +96,9 @@ void rtos_sched(void)
         return;
     }
     if (g_kernel.sched_lock > 0) {
+        RTOS_ENTER_CRITICAL();
         g_kernel.need_resched = 1;
+        RTOS_EXIT_CRITICAL();
         return;
     }
 
