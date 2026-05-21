@@ -1,0 +1,4 @@
+mainmenu "LinRTOS Configuration"
+
+# Introduce src subdirectory Kconfig
+source "src/Kconfig"

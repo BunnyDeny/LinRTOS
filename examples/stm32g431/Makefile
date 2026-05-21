@@ -131,7 +131,8 @@ C_INCLUDES =  \
 -IDrivers/STM32G4xx_HAL_Driver/Inc/Legacy \
 -IDrivers/CMSIS/Device/ST/STM32G4xx/Include \
 -IDrivers/CMSIS/Include \
--I../../include
+-I../../include \
+-I$(BUILD_DIR)
 
 
 # compile gcc flags

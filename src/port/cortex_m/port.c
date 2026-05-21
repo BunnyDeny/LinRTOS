@@ -31,7 +31,7 @@ void rtos_port_init(void)
  * ============================================================ */
 
 /* 若用户未定义 SystemCoreClock，提供一个弱默认 */
-__attribute__((weak)) extern uint32_t SystemCoreClock;
+extern uint32_t SystemCoreClock __attribute__((weak));
 
 static uint32_t s_core_clock = 0;
 

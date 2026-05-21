@@ -13,9 +13,7 @@
  * ⏱️ SysTick 中断入口（由用户启动文件调用）
  * ============================================================ */
 
-void SysTick_Handler(void) __attribute__((weak));
-
-void SysTick_Handler(void)
+__attribute__((weak)) void SysTick_Handler(void)
 {
     rtos_tick_handler();
 }

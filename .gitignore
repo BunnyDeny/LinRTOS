@@ -14,3 +14,11 @@ build/
 *.log
 *.swp
 *~
+
+# Python
+__pycache__/
+*.pyc
+
+# Kconfig generated files
+.config
+.config.old

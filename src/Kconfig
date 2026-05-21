@@ -1,0 +1,59 @@
+menu "LinRTOS Kernel"
+
+config RTOS_MAX_PRIORITIES
+	int "Maximum number of priorities (1-64)"
+	range 1 64
+	default 32
+	help
+	  Number of priority levels. Must be <= 64.
+
+config RTOS_TICK_RATE_HZ
+	int "System tick rate (Hz)"
+	default 1000
+	help
+	  SysTick interrupt frequency.
+
+config RTOS_MAX_TASK_NAME_LEN
+	int "Maximum task name length"
+	default 16
+	help
+	  Including null terminator.
+
+config RTOS_ENABLE_TIME_SLICING
+	bool "Enable time slicing"
+	default y
+	help
+	  Round-robin scheduling among same-priority tasks.
+
+config RTOS_TIME_SLICE_TICKS
+	int "Time slice length (ticks)"
+	default 1
+	depends on RTOS_ENABLE_TIME_SLICING
+	help
+	  Number of ticks before switching to next same-priority task.
+
+config RTOS_ENABLE_IDLE_HOOK
+	bool "Enable idle hook"
+	default n
+	help
+	  Call user-provided hook function in idle task.
+
+config RTOS_ENABLE_FPU
+	bool "Enable FPU support (Cortex-M4F/M7)"
+	default y
+	help
+	  Enable FPU context save/restore on task switch.
+
+config RTOS_MAX_TASKS
+	int "Maximum number of tasks"
+	default 16
+	help
+	  Size of the static TCB pool.
+
+config RTOS_IDLE_STACK_SIZE
+	int "Idle task stack size (words)"
+	default 64
+	help
+	  Stack size in uint32_t words.
+
+endmenu
