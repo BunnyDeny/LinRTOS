@@ -112,9 +112,6 @@ int main(void)
     HAL_Init();
     SystemClock_Config();
 
-    /* 关键：将 PendSV 设为最低优先级，防止在 SysTick 中抢占导致 MSP 栈帧被破坏 */
-    *(volatile uint8_t *)0xE000ED22 = 0xF0;
-
     MX_GPIO_Init();
     MX_DMA_Init();
     MX_USART3_UART_Init();

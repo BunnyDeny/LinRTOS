@@ -389,6 +389,9 @@ static void rtos_create_idle_task(void)
 
 void rtos_scheduler_start(void)
 {
+    /* 初始化 port 层：PendSV/SysTick 优先级、FPU 等 */
+    rtos_port_init();
+
     rtos_kernel_init();
 
     /* 创建空闲任务 */

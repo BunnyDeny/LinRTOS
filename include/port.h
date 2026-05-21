@@ -19,6 +19,9 @@ extern "C" {
  * 🎯 移植层接口：由具体架构实现
  * ============================================================ */
 
+/* 初始化 port 层（PendSV 优先级、FPU Lazy Stacking 等） */
+void rtos_port_init(void);
+
 /* 初始化硬件节拍定时器 (SysTick) */
 void rtos_port_init_systick(uint32_t tick_hz);
 

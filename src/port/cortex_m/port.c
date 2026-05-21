@@ -11,6 +11,22 @@
 #include "task.h"
 
 /* ============================================================
+ * 🔧 Port 层一次性初始化
+ * ============================================================ */
+
+#define PORT_NVIC_SYSPRI2   (*(volatile uint32_t *)0xE000ED20)
+#define PORT_PENDSV_PRI     (0xFFU << 16)   /* PendSV  = 最低优先级 */
+#define PORT_SYSTICK_PRI    (0xFFU << 24)   /* SysTick = 最低优先级 */
+
+void rtos_port_init(void)
+{
+    /* 将 PendSV 和 SysTick 设为最低优先级，
+     * 防止 PendSV 在 SysTick 中抢占导致 MSP 栈帧被破坏。
+     */
+    PORT_NVIC_SYSPRI2 |= (PORT_PENDSV_PRI | PORT_SYSTICK_PRI);
+}
+
+/* ============================================================
  * ⚡ SysTick 初始化
  * ============================================================ */
 
