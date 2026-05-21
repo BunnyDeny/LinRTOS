@@ -36,6 +36,9 @@ void rtos_task_suspend(rtos_task_handle_t task);
 /* 恢复任务 */
 void rtos_task_resume(rtos_task_handle_t task);
 
+/* 强制终止任务的延时，将其从阻塞态拉回就绪态 */
+rtos_err_t rtos_task_abort_delay(rtos_task_handle_t task);
+
 /* 延时指定 tick（相对） */
 void rtos_task_delay(uint32_t ticks);
 

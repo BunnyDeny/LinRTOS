@@ -223,6 +223,28 @@ void rtos_task_resume(rtos_task_handle_t task)
     RTOS_EXIT_CRITICAL();
 }
 
+rtos_err_t rtos_task_abort_delay(rtos_task_handle_t task)
+{
+    struct rtos_tcb *tcb = (struct rtos_tcb *)task;
+    if (!tcb) {
+        return RTOS_ERR_PARAM;
+    }
+
+    RTOS_ENTER_CRITICAL();
+    if (tcb->state != RTOS_TASK_BLOCKED) {
+        RTOS_EXIT_CRITICAL();
+        return RTOS_ERR_STATE;
+    }
+
+    rtos_list_remove(&tcb->delay_node);
+    tcb->wake_tick = 0;
+    rtos_task_ready(tcb);
+    RTOS_EXIT_CRITICAL();
+
+    rtos_sched();
+    return RTOS_OK;
+}
+
 /* ============================================================
  * ⏰ 延时 / Yield
  * ============================================================ */
