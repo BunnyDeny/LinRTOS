@@ -34,7 +34,10 @@ def main():
     kconfig = Kconfig("Kconfig")
 
     dotconfig = ".config"
+    old_content = ""
     if os.path.exists(dotconfig):
+        with open(dotconfig, "r", encoding="utf-8") as f:
+            old_content = f.read()
         kconfig.load_config(dotconfig)
         print(f"Loaded existing config: {dotconfig}")
     else:
@@ -43,9 +46,19 @@ def main():
     # Launch interactive TUI
     menuconfig(kconfig)
 
-    # Save
+    # Write config (kconfiglib avoids touching the file if content is identical)
     kconfig.write_config(dotconfig)
-    print(f"Configuration saved to {dotconfig}")
+
+    # Check if content actually changed for user feedback
+    new_content = ""
+    if os.path.exists(dotconfig):
+        with open(dotconfig, "r", encoding="utf-8") as f:
+            new_content = f.read()
+
+    if old_content == new_content:
+        print("No changes to save")
+    else:
+        print(f"Configuration saved to {dotconfig}")
 
 
 if __name__ == "__main__":
