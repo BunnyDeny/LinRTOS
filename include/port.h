@@ -28,9 +28,6 @@ void rtos_port_init_systick(uint32_t tick_hz);
 /* 启动第一个任务（触发 SVC 异常，在异常中恢复第一个任务上下文） */
 void rtos_port_start_first_task(void);
 
-/* 触发 PendSV 进行上下文切换 */
-void rtos_port_trigger_pendsv(void);
-
 /* 初始化任务栈帧（构造首次运行的硬件上下文） */
 uint32_t *rtos_port_init_stack(uint32_t *stack_top, rtos_task_func_t func,
                                 void *param);
