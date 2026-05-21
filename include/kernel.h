@@ -58,8 +58,6 @@ struct rtos_kernel {
     struct rtos_list_node ready_list[RTOS_MAX_PRIORITIES];  /* 各优先级就绪链表头 */
     rtos_ready_map_t ready_map;      /* 位图：1=该优先级有就绪任务 */
 
-    struct rtos_tcb *current_task;   /* 当前运行任务 */
-    struct rtos_tcb *next_task;      /* 上下文切换目标（由PendSV读取） */
     struct rtos_tcb *idle_task;      /* 空闲任务 */
 
     volatile uint32_t tick_count;    /* 全局tick计数 */

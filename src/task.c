@@ -145,7 +145,7 @@ rtos_err_t rtos_task_create(rtos_task_func_t func, const char *name,
         *out_handle = tcb;
     }
 
-    if (g_kernel.is_running && tcb->priority > g_kernel.current_task->priority) {
+    if (g_kernel.is_running && tcb->priority > ((struct rtos_tcb *)rtos_current_tcb)->priority) {
         rtos_sched();
     }
 
@@ -161,7 +161,7 @@ void rtos_task_delete(rtos_task_handle_t task)
     struct rtos_tcb *tcb = (struct rtos_tcb *)task;
 
     if (!tcb) {
-        tcb = g_kernel.current_task;
+        tcb = (struct rtos_tcb *)rtos_current_tcb;
     }
 
     RTOS_ENTER_CRITICAL();
@@ -174,7 +174,7 @@ void rtos_task_delete(rtos_task_handle_t task)
 
     tcb->state = RTOS_TASK_DELETED;
 
-    if (tcb == g_kernel.current_task) {
+    if (tcb == (struct rtos_tcb *)rtos_current_tcb) {
         /* 自删：强制释放所有嵌套的调度锁，挂到待回收列表，然后触发调度 */
         g_kernel.need_resched = 1;
         while (g_kernel.sched_lock > 0) {
@@ -201,14 +201,14 @@ void rtos_task_suspend(rtos_task_handle_t task)
 {
     struct rtos_tcb *tcb = (struct rtos_tcb *)task;
     if (!tcb) {
-        tcb = g_kernel.current_task;
+        tcb = (struct rtos_tcb *)rtos_current_tcb;
     }
 
     RTOS_ENTER_CRITICAL();
     if (tcb->state == RTOS_TASK_READY || tcb->state == RTOS_TASK_RUNNING) {
         rtos_task_unready(tcb);
         tcb->state = RTOS_TASK_SUSPENDED;
-        if (tcb == g_kernel.current_task) {
+        if (tcb == (struct rtos_tcb *)rtos_current_tcb) {
             RTOS_EXIT_CRITICAL();
             rtos_sched();
             return;
@@ -228,7 +228,7 @@ void rtos_task_resume(rtos_task_handle_t task)
     if (tcb->state == RTOS_TASK_SUSPENDED) {
         rtos_task_ready(tcb);
         /* 如果被恢复的任务优先级高于当前任务，触发抢占 */
-        if (tcb->priority > g_kernel.current_task->priority) {
+        if (tcb->priority > ((struct rtos_tcb *)rtos_current_tcb)->priority) {
             RTOS_EXIT_CRITICAL();
             rtos_sched();
             return;
@@ -270,7 +270,7 @@ void rtos_task_delay(uint32_t ticks)
         return;
     }
 
-    struct rtos_tcb *tcb = g_kernel.current_task;
+    struct rtos_tcb *tcb = (struct rtos_tcb *)rtos_current_tcb;
 
     RTOS_ENTER_CRITICAL();
     tcb->wake_tick = g_kernel.tick_count + ticks;
@@ -312,7 +312,7 @@ void rtos_task_yield(void)
     RTOS_ENTER_CRITICAL();
 #if RTOS_ENABLE_TIME_SLICING
     /* 将当前任务放到同优先级链表尾部，重置时间片 */
-    struct rtos_tcb *tcb = g_kernel.current_task;
+    struct rtos_tcb *tcb = (struct rtos_tcb *)rtos_current_tcb;
     tcb->time_slice = RTOS_TIME_SLICE_TICKS;
     rtos_list_remove(&tcb->ready_node);
     rtos_list_insert_before(&g_kernel.ready_list[tcb->priority],
@@ -329,14 +329,14 @@ void rtos_task_yield(void)
 
 rtos_task_handle_t rtos_task_get_current(void)
 {
-    return g_kernel.current_task;
+    return (struct rtos_tcb *)rtos_current_tcb;
 }
 
 uint32_t rtos_task_get_priority(rtos_task_handle_t task)
 {
     struct rtos_tcb *tcb = (struct rtos_tcb *)task;
     if (!tcb) {
-        tcb = g_kernel.current_task;
+        tcb = (struct rtos_tcb *)rtos_current_tcb;
     }
     return tcb ? tcb->priority : 0;
 }
@@ -345,7 +345,7 @@ void rtos_task_set_priority(rtos_task_handle_t task, uint32_t priority)
 {
     struct rtos_tcb *tcb = (struct rtos_tcb *)task;
     if (!tcb) {
-        tcb = g_kernel.current_task;
+        tcb = (struct rtos_tcb *)rtos_current_tcb;
     }
     if (!tcb || priority >= RTOS_MAX_PRIORITIES) {
         return;
@@ -376,7 +376,7 @@ uint32_t rtos_task_get_stack_free(rtos_task_handle_t task)
 {
     struct rtos_tcb *tcb = (struct rtos_tcb *)task;
     if (!tcb) {
-        tcb = g_kernel.current_task;
+        tcb = (struct rtos_tcb *)rtos_current_tcb;
     }
     if (!tcb) {
         return 0;
@@ -465,10 +465,10 @@ void rtos_scheduler_start(void)
     rtos_port_init_systick(RTOS_TICK_RATE_HZ);
 
     /* 选出第一个运行的任务 */
-    g_kernel.current_task = rtos_pick_highest_ready();
-    g_kernel.current_task->state = RTOS_TASK_RUNNING;
+    struct rtos_tcb *first = rtos_pick_highest_ready();
+    first->state = RTOS_TASK_RUNNING;
     g_kernel.is_running = 1;
-    rtos_current_tcb = g_kernel.current_task;
+    rtos_current_tcb = first;
 
     /* 启动第一个任务（触发 SVC） */
     rtos_port_start_first_task();

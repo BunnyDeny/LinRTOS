@@ -14,7 +14,7 @@
     .global rtos_port_start_first_task
 
     .extern rtos_current_tcb
-    .extern rtos_next_tcb
+    .extern rtos_switch_context
 
 #include "config.h"
 
@@ -81,6 +81,11 @@ SVC_Handler:
  * 由 rtos_port_request_switch() 置位 PENDSVSET 触发。
  * PendSV 优先级应设为最低，确保在所有其他中断处理完毕后执行。
  *
+ * 关键设计变更：不在 C 层预决策下一个任务，而是直接在 PendSV 中
+ * 调用 rtos_switch_context() 重新 O(1) 查找最高优先级就绪任务，
+ * 并原子更新任务状态与 rtos_current_tcb。这彻底消除了
+ * rtos_sched() 与 PendSV 执行之间的竞态窗口。
+ *
  * FPU 上下文保存策略（FreeRTOS / RT-Thread 标准做法）：
  *   - 硬件 Lazy Stacking 自动处理 S0-S15 + FPSCR
  *   - 软件仅负责保存/恢复 S16-S31（callee-saved）
@@ -111,18 +116,22 @@ PendSV_Handler:
     ldr     r2, [r3]
     str     r0, [r2]
 
-    /* ---- 切换到下一个任务 ---- */
-    /* rtos_current_tcb = rtos_next_tcb */
-    ldr     r2, =rtos_next_tcb
-    ldr     r2, [r2]
-    str     r2, [r3]
+    /* ---- 调用 C 函数完成调度决策与状态更新 ---- */
+    /* rtos_switch_context() 在临界区内：
+     *   1. 调用 rtos_pick_highest_ready() 重新查找
+     *   2. 若 next != curr：更新状态 + rtos_current_tcb
+     *   3. 返回 next 指针（在 r0 中）
+     * bl 会覆盖 lr，因此先保存 EXC_RETURN。
+     */
+    push    {lr}
+    bl      rtos_switch_context
+    mov     r4, r0              /* r4 = next（r4 已在 stmdb 中保存到旧任务栈） */
+    pop     {lr}
 
-    /* g_kernel.current_task = rtos_next_tcb */
-    ldr     r3, =g_kernel
-    str     r2, [r3, #260]
-
-    /* r0 = new_current_task->stack_ptr */
-    ldr     r0, [r2]
+    /* ---- 恢复下一个任务上下文 ---- */
+    /* r0 = next->stack_ptr */
+    mov     r0, r4
+    ldr     r0, [r0]
 
     /* 恢复 R4-R11 + EXC_RETURN */
     ldmia   r0!, {r4-r11, lr}

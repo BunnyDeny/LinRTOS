@@ -16,7 +16,6 @@
 
 struct rtos_kernel g_kernel;
 volatile struct rtos_tcb *rtos_current_tcb = NULL;
-volatile struct rtos_tcb *rtos_next_tcb = NULL;
 static int s_kernel_inited = 0;
 
 /* ============================================================
@@ -87,6 +86,34 @@ struct rtos_tcb *rtos_pick_highest_ready(void)
 }
 
 /* ============================================================
+ * 🔄 PendSV 中的上下文切换决策
+ * ============================================================
+ *
+ * 由 PendSV_Handler 调用。在临界区内完成：
+ * 1. 重新选择最高优先级就绪任务（消除 rtos_sched 与 PendSV 之间的竞态）
+ * 2. 更新任务状态（RUNNING → READY，READY → RUNNING）
+ * 3. 更新 rtos_current_tcb
+ * ============================================================ */
+
+struct rtos_tcb *rtos_switch_context(void)
+{
+    struct rtos_tcb *curr = (struct rtos_tcb *)rtos_current_tcb;
+    struct rtos_tcb *next = rtos_pick_highest_ready();
+
+    if (next != curr) {
+        RTOS_ENTER_CRITICAL();
+        if (curr && curr->state == RTOS_TASK_RUNNING) {
+            curr->state = RTOS_TASK_READY;
+        }
+        next->state = RTOS_TASK_RUNNING;
+        rtos_current_tcb = next;
+        RTOS_EXIT_CRITICAL();
+    }
+
+    return next;
+}
+
+/* ============================================================
  * ⚡ 调度请求
  * ============================================================ */
 
@@ -95,27 +122,17 @@ void rtos_sched(void)
     if (!g_kernel.is_running) {
         return;
     }
+
+    RTOS_ENTER_CRITICAL();
     if (g_kernel.sched_lock > 0) {
-        RTOS_ENTER_CRITICAL();
         g_kernel.need_resched = 1;
         RTOS_EXIT_CRITICAL();
         return;
     }
+    g_kernel.need_resched = 0;
+    RTOS_EXIT_CRITICAL();
 
-    /* 与汇编维护的 rtos_current_tcb 同步 */
-    g_kernel.current_task = (struct rtos_tcb *)rtos_current_tcb;
-
-    struct rtos_tcb *next = rtos_pick_highest_ready();
-    struct rtos_tcb *curr = g_kernel.current_task;
-
-    rtos_next_tcb = next;
-    if (next != curr) {
-        if (curr && curr->state != RTOS_TASK_DELETED) {
-            curr->state = RTOS_TASK_READY;
-        }
-        next->state = RTOS_TASK_RUNNING;
-        rtos_port_request_switch();
-    }
+    rtos_port_request_switch();
 }
 
 void rtos_sched_yield(void)
