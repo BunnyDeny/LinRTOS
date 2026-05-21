@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Load a defconfig (minimal diff) into .config (full config),
-then generate build/linrtos_kconfig.h automatically.
+then generate include/linrtos_kconfig.h automatically.
 Usage: python3 tools/linrtos_load_defconfig.py <defconfig_path>
 """
 import sys
@@ -37,12 +37,8 @@ def main():
     kconfig.write_config(".config")
     print(f"Loaded {defconfig_path} into .config")
 
-    # Auto-generate header to root build/ directory
-    os.makedirs("build", exist_ok=True)
-    config_to_header.convert(".config", "build/linrtos_kconfig.h")
-
-    # Auto-generate header for stm32g431 example
-    config_to_header.convert(".config", "examples/stm32g431/build/linrtos_kconfig.h")
+    # Auto-generate header to include/ directory
+    config_to_header.convert(".config", "include/linrtos_kconfig.h")
 
 
 if __name__ == "__main__":

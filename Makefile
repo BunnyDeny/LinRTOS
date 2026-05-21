@@ -13,7 +13,7 @@ help:
 	@echo "  make savedefconfig   - Save minimal config to configs/LinRTOS_defconfig"
 	@echo "  make build-g431      - Build stm32g431 example project"
 	@echo "  make flash-g431      - Build and flash stm32g431 via OpenOCD (CMSIS-DAP)"
-	@echo "  make mrproper        - Remove .config, build/, and generated headers"
+	@echo "  make mrproper        - Remove .config, generated headers, and example build/"
 
 # Kconfig / menuconfig targets
 menuconfig:
@@ -40,11 +40,15 @@ savedefconfig:
 
 mrproper:
 	@rm -f .config .config.old
-	@rm -rf build
+	@rm -f include/linrtos_kconfig.h
 	@rm -rf examples/stm32g431/build
-	@echo "Cleaned .config, build/, and generated headers"
+	@echo "Cleaned .config, generated headers, and example build/"
 
 build-g431:
+	@if [ ! -f "include/linrtos_kconfig.h" ]; then \
+		echo "linrtos_kconfig.h not found, running 'make defconfig'..."; \
+		$(MAKE) defconfig; \
+	fi
 	@$(MAKE) -C examples/stm32g431 all
 
 flash-g431: build-g431

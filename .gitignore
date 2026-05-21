@@ -22,3 +22,4 @@ __pycache__/
 # Kconfig generated files
 .config
 .config.old
+include/linrtos_kconfig.h

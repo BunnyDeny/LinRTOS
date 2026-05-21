@@ -43,8 +43,12 @@ def main():
     # Launch interactive TUI
     menuconfig(kconfig)
 
-    # Save (kconfiglib handles unchanged-content optimization internally)
+    # Save .config and sync header
     kconfig.write_config(dotconfig)
+
+    # Also generate include/linrtos_kconfig.h so menuconfig changes are reflected
+    import config_to_header
+    config_to_header.convert(dotconfig, "include/linrtos_kconfig.h")
 
 
 if __name__ == "__main__":
