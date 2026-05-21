@@ -66,6 +66,12 @@ uint32_t rtos_get_tick_count(void);
 /* 获取调度器运行状态 */
 int rtos_scheduler_is_running(void);
 
+/* 禁止任务抢占（中断仍响应，可嵌套） */
+void rtos_sched_lock(void);
+
+/* 恢复任务抢占（若锁降为0且有挂起的调度请求，立即触发调度） */
+void rtos_sched_unlock(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -163,9 +163,11 @@ void rtos_task_delete(rtos_task_handle_t task)
     tcb->state = RTOS_TASK_DELETED;
 
     if (tcb == g_kernel.current_task) {
-        /* 自删：触发调度，永不返回 */
+        /* 自删：强制释放所有嵌套的调度锁并触发调度，永不返回 */
         g_kernel.need_resched = 1;
-        g_kernel.sched_lock = 0;
+        while (g_kernel.sched_lock > 0) {
+            rtos_sched_unlock();
+        }
         RTOS_EXIT_CRITICAL();
         rtos_sched();
         /* 理论上不会执行到这里 */
@@ -361,6 +363,32 @@ uint32_t rtos_get_tick_count(void)
 int rtos_scheduler_is_running(void)
 {
     return g_kernel.is_running;
+}
+
+/* ============================================================
+ * 🔒 调度锁
+ * ============================================================ */
+
+void rtos_sched_lock(void)
+{
+    RTOS_ENTER_CRITICAL();
+    g_kernel.sched_lock++;
+    RTOS_EXIT_CRITICAL();
+}
+
+void rtos_sched_unlock(void)
+{
+    RTOS_ENTER_CRITICAL();
+    if (g_kernel.sched_lock > 0) {
+        g_kernel.sched_lock--;
+        if (g_kernel.sched_lock == 0 && g_kernel.need_resched) {
+            g_kernel.need_resched = 0;
+            RTOS_EXIT_CRITICAL();
+            rtos_sched();
+            return;
+        }
+    }
+    RTOS_EXIT_CRITICAL();
 }
 
 /* ============================================================
