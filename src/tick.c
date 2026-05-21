@@ -34,6 +34,7 @@ void rtos_tick_handler(void)
     g_kernel.tick_count++;
 
     /* ── 处理延时队列 ── */
+    struct rtos_tcb *curr = (struct rtos_tcb *)rtos_current_tcb;
     struct rtos_list_node *pos, *n;
     rtos_list_for_each_safe(pos, n, &g_kernel.delay_list) {
         struct rtos_tcb *tcb = rtos_list_entry(pos, struct rtos_tcb, delay_node);
@@ -42,6 +43,10 @@ void rtos_tick_handler(void)
             rtos_list_remove(&tcb->delay_node);
             tcb->wake_tick = 0;
             rtos_task_ready(tcb);
+            /* 若被唤醒的任务优先级更高，标记需要调度 */
+            if (curr && tcb->priority > curr->priority) {
+                g_kernel.need_resched = 1;
+            }
         } else {
             /* delay_list 按 wake_tick 升序排列，后面的更不会到期 */
             break;
@@ -50,7 +55,6 @@ void rtos_tick_handler(void)
 
     /* ── 时间片轮转 ── */
 #if RTOS_ENABLE_TIME_SLICING
-    struct rtos_tcb *curr = (struct rtos_tcb *)rtos_current_tcb;
     if (curr && curr != g_kernel.idle_task) {
         rtos_sched_time_slice(curr);
     }

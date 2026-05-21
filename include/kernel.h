@@ -105,7 +105,10 @@ void rtos_sched_yield(void);
 void rtos_tick_handler(void);
 
 #if RTOS_ENABLE_TIME_SLICING
-/* 时间片轮转 */
+/*
+ * ⚠️ 内核内部函数，不对用户开放。
+ * 调用者必须处于临界区内，此函数不自行关中断。
+ */
 void rtos_sched_time_slice(struct rtos_tcb *tcb);
 #endif
 

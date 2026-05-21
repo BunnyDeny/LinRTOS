@@ -92,7 +92,11 @@ struct rtos_tcb *rtos_pick_highest_ready(void)
 
 void rtos_sched(void)
 {
-    if (!g_kernel.is_running || g_kernel.sched_lock > 0) {
+    if (!g_kernel.is_running) {
+        return;
+    }
+    if (g_kernel.sched_lock > 0) {
+        g_kernel.need_resched = 1;
         return;
     }
 
