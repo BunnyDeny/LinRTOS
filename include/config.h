@@ -52,9 +52,4 @@
 #define RTOS_STACK_FILL_MAGIC       0xA5A5A5A5U
 #endif
 
-/* 中断嵌套中的安全临界区嵌套深度上限 */
-#ifndef RTOS_MAX_CRITICAL_NESTING
-#define RTOS_MAX_CRITICAL_NESTING   256
-#endif
-
 #endif /* RTOS_CONFIG_H */
