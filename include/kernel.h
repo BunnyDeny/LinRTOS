@@ -68,6 +68,7 @@ struct rtos_kernel {
     volatile uint8_t  need_resched;  /* 标记需要调度 */
 
     struct rtos_list_node delay_list;    /* 按 wake_tick 升序排列的延时队列 */
+    struct rtos_list_node terminated_list; /* 已终止、待空闲任务回收的TCB列表 */
 
 #if RTOS_ENABLE_IDLE_HOOK
     rtos_idle_hook_t idle_hook;

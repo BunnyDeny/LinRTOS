@@ -34,6 +34,7 @@ void rtos_kernel_init(void)
         rtos_list_init(&g_kernel.ready_list[i]);
     }
     rtos_list_init(&g_kernel.delay_list);
+    rtos_list_init(&g_kernel.terminated_list);
 }
 
 /* ============================================================
