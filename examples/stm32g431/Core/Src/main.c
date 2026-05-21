@@ -18,9 +18,11 @@ static uint32_t task_high_stack[256];
 static uint32_t task_low_stack[256];
 static uint32_t task_fp_a_stack[512];
 static uint32_t task_fp_b_stack[512];
+static uint32_t task_test_stack[128];
 
 static volatile uint32_t s_high_count = 0;
 static volatile uint32_t s_low_count = 0;
+static volatile uint32_t s_test_count = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -41,12 +43,23 @@ static void task_high(void *param)
         debug_printf("[HIGH] tick=%lu count=%lu\r\n",
                      (unsigned long)rtos_get_tick_count(),
                      (unsigned long)s_high_count);
-        if (s_high_count >= 3) {
-            debug_printf("[HIGH] ===== self-deleting now =====\r\n");
-            rtos_task_delete(NULL);   /* 自删 */
-        }
         rtos_task_delay(500);
     }
+}
+
+/* ============================================================
+ * 🔄 自删任务 —— 运行一次后自删，验证空闲任务回收 TCB
+ * ============================================================ */
+static void task_test(void *param)
+{
+    (void)param;
+    s_test_count++;
+    debug_printf("[TEST] run #%lu, tick=%lu\r\n",
+                 (unsigned long)s_test_count,
+                 (unsigned long)rtos_get_tick_count());
+    rtos_task_delay(300);
+    debug_printf("[TEST] self-delete\r\n");
+    rtos_task_delete(NULL);
 }
 
 static void task_low(void *param)
@@ -54,9 +67,19 @@ static void task_low(void *param)
     (void)param;
     for (;;) {
         s_low_count++;
-        debug_printf("[LOW ] tick=%lu count=%lu\r\n",
+        debug_printf("[LOW ] tick=%lu count=%lu test_count=%lu\r\n",
                      (unsigned long)rtos_get_tick_count(),
-                     (unsigned long)s_low_count);
+                     (unsigned long)s_low_count,
+                     (unsigned long)s_test_count);
+        /* 周期性创建自删任务，验证 TCB 回收重用 */
+        rtos_err_t err = rtos_task_create(task_test, "test",
+                                          task_test_stack, 128, NULL, 2, NULL);
+        if (err != RTOS_OK) {
+            debug_printf("[LOW ] create test FAILED! err=%d (pool exhausted?)\r\n",
+                         (int)err);
+        } else {
+            debug_printf("[LOW ] create test OK\r\n");
+        }
         rtos_task_delay(1000);
     }
 }
