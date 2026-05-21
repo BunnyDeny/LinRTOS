@@ -63,7 +63,5 @@ void rtos_tick_handler(void)
     RTOS_EXIT_CRITICAL();
 
     /* 尝试调度（由 rtos_sched 内部决定是否需要上下文切换） */
-    if (g_kernel.is_running && !g_kernel.sched_lock) {
-        rtos_sched();
-    }
+    rtos_sched();
 }
