@@ -34,6 +34,7 @@ void rtos_kernel_init(void)
         rtos_list_init(&g_kernel.ready_list[i]);
     }
     rtos_list_init(&g_kernel.delay_list);
+    rtos_list_init(&g_kernel.terminated_list);
 }
 
 /* ============================================================
@@ -103,7 +104,7 @@ void rtos_sched(void)
 
     rtos_next_tcb = next;
     if (next != curr) {
-        if (curr) {
+        if (curr && curr->state != RTOS_TASK_DELETED) {
             curr->state = RTOS_TASK_READY;
         }
         next->state = RTOS_TASK_RUNNING;

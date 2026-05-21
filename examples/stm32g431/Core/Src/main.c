@@ -41,6 +41,10 @@ static void task_high(void *param)
         debug_printf("[HIGH] tick=%lu count=%lu\r\n",
                      (unsigned long)rtos_get_tick_count(),
                      (unsigned long)s_high_count);
+        if (s_high_count >= 3) {
+            debug_printf("[HIGH] ===== self-deleting now =====\r\n");
+            rtos_task_delete(NULL);   /* 自删 */
+        }
         rtos_task_delay(500);
     }
 }
