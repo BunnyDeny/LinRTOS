@@ -30,14 +30,11 @@
  * ============================================================ */
 #if (RTOS_ENABLE_FPU != 0)
     #if !defined(__VFP_FP__)
-        #error "RTOS_ENABLE_FPU is enabled but compiler is not using hard-float ABI. \
-                Please add -mfloat-abi=hard -mfpu=fpv4-sp-d16 (or fpv5-d16) to your CFLAGS."
+        #error "RTOS_ENABLE_FPU is enabled but compiler is not using hard-float ABI. Please add -mfloat-abi=hard -mfpu=fpv4-sp-d16 (or fpv5-d16) to your CFLAGS."
     #endif
 #else
     #if defined(__VFP_FP__) && !defined(__SOFTFP__)
-        #error "RTOS_ENABLE_FPU is 0 but compiler is using hard-float ABI (-mfloat-abi=hard). \
-                FPU context will NOT be saved across task switches. \
-                Either set RTOS_ENABLE_FPU to 1 in config.h, or remove -mfloat-abi=hard from CFLAGS."
+        #error "RTOS_ENABLE_FPU is 0 but compiler is using hard-float ABI (-mfloat-abi=hard). FPU context will NOT be saved across task switches. Either set RTOS_ENABLE_FPU to 1 in config.h, or remove -mfloat-abi=hard from CFLAGS."
     #endif
 #endif
 
