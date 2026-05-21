@@ -55,9 +55,7 @@ def main():
         with open(dotconfig, "r", encoding="utf-8") as f:
             new_content = f.read()
 
-    if old_content == new_content:
-        print("No changes to save")
-    else:
+    if old_content != new_content:
         print(f"Configuration saved to {dotconfig}")
 
 
