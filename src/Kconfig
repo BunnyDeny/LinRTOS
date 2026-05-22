@@ -86,6 +86,16 @@ config TEST_SCHED_LOCK
 	help
 	  Verify rtos_sched_lock / rtos_sched_unlock and nesting.
 
+config TEST_PRIORITY_CHANGE
+	bool "Dynamic priority change + state query"
+	help
+	  Verify rtos_task_set_priority / get_priority / get_state / get_current.
+
+config TEST_YIELD_ABORT
+	bool "Task yield + abort delay + stack free"
+	help
+	  Verify rtos_task_yield / abort_delay / get_stack_free / is_running.
+
 endchoice
 
 endmenu
