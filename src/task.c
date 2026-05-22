@@ -213,6 +213,9 @@ void rtos_task_suspend(rtos_task_handle_t task)
             rtos_sched();
             return;
         }
+    } else if (tcb->state == RTOS_TASK_BLOCKED) {
+        rtos_list_remove(&tcb->delay_node);
+        tcb->state = RTOS_TASK_SUSPENDED;
     }
     RTOS_EXIT_CRITICAL();
 }
