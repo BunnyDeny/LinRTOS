@@ -1,103 +1,95 @@
-# 🎯 LinRTOS
+# LinRTOS
 
-LinRTOS 是一款面向 **ARM Cortex-M3/M4/M7** 的极简抢占式实时操作系统（RTOS），采用纯 C 语言编写，零外部依赖，可直接嵌入裸机固件。
+LinRTOS 是一款面向 **ARM Cortex-M3/M4/M7** 的极简抢占式实时操作系统，采用纯 C 编写，零外部依赖，源码级集成。
 
-> ⚡ **核心特性**
-> - ✅ 抢占式优先级调度 + 可选时间片轮转
-> - ✅ 任务延时与绝对周期延时
-> - ✅ 任务挂起与恢复
-> - ✅ 动态优先级调整
-> - 🪶 极轻量：内核核心约 2~3 KB Flash
+**核心特性**
+- 抢占式优先级调度 + 可选时间片轮转
+- 任务延时 / 绝对周期延时 / 主动让出
+- 任务挂起、恢复、自删除
+- 动态优先级调整
+- 调度器嵌套锁
+- 极轻量：内核核心约 2~3 KB Flash
 
 ---
 
-## 📂 目录结构
+## 目录结构
 
 ```
 LinRTOS/
-├── include/            # 📌 对外 API 头文件
-│   ├── rtos.h          # 总入口
-│   ├── config.h   # 裁剪配置
-│   ├── task.h     # 任务管理
-│   ├── kernel.h   # 内核内部定义
-│   ├── list.h     # 双向链表
-│   ├── port.h     # 移植层接口
-│   ├── types.h    # 基础类型
-│   └── config.h   # 配置宏
-├── src/
-│   ├── sched.c    # 调度器 + 就绪队列（O(1) 位图）
-│   ├── task.c     # 任务生命周期 + TCB 静态池
-│   ├── tick.c     # SysTick + 延时队列
-│   └── port/
-│       └── cortex_m/
-│           ├── port.c     # SysTick 初始化 + 临界区 + 栈帧
-│           └── port_asm.S # PendSV + SVC 上下文切换
-├── examples/
-│   ├── stm32g431/      # STM32G431CBUx 真实硬件示例
-│   └── ...
-├── docs/               # 架构与使用文档
-└── CMakeLists.txt
+├── include/          # 对外 API 头文件
+│   ├── linRTOS.h     # 总入口（含 RTOS_ENTER_CRITICAL 等宏）
+│   ├── task.h        # 任务管理 API
+│   ├── kernel.h      # 内核内部数据结构
+│   ├── list.h        # 双向链表
+│   ├── port.h        # 移植层接口
+│   └── types.h       # 基础类型与错误码
+├── src/              # 内核源码
+│   ├── task.c        # 任务生命周期 + TCB 静态池
+│   ├── sched.c       # 调度器 + O(1) 位图就绪队列
+│   ├── tick.c        # SysTick + 延时队列
+│   └── port/cortex_m/# Cortex-M 移植层
+├── tests/            # 测试用例（条件编译，一次只启用一个）
+├── examples/stm32g431/   # STM32G431CBUx 真实硬件示例
+├── configs/          # 默认 defconfig
+├── tools/            # Kconfig 脚本
+└── Makefile          # 顶层构建入口
 ```
 
 ---
 
-## 🏗️ 系统架构
+## 移植指南
+
+### 1. 集成源码
+
+将本仓库作为子目录加入你的工程，把 `include/` 加入头文件搜索路径，`src/` 下的 `.c` 文件加入编译：
 
 ```
-┌─────────────────────────────────────┐
-│  应用层（用户任务 / 中断服务程序）     │
-├─────────────────────────────────────┤
-│  API 层                              │
-│  rtos_task_create / rtos_task_delay │
-├─────────────────────────────────────┤
-│  内核核心                            │
-│  调度器 (O(1) 位图)  │  延时队列      │
-│  就绪队列            │  时间片轮转    │
-├─────────────────────────────────────┤
-│  硬件抽象层 (Port)                    │
-│  SysTick │ PendSV │ SVC │ 临界区     │
-└─────────────────────────────────────┘
+-I../../include
+../../src/task.c
+../../src/sched.c
+../../src/tick.c
+../../src/port/cortex_m/port.c
+../../src/port/cortex_m/port_asm.S
 ```
 
-### 调度器
+### 2. 实现中断向量表绑定
 
-- 采用 **32-bit 位图** 实现 O(1) 优先级查找。
-- 数值越大优先级越高（`0` = 最低，`RTOS_MAX_PRIORITIES-1` = 最高）。
-- 同优先级任务可选 **时间片轮转**（默认 1 tick）。
+在你的启动文件中，确保以下三个 Handler 指向 LinRTOS：
 
-### 上下文切换
+| Handler | 说明 |
+|---------|------|
+| `SysTick_Handler` | 系统节拍，直接调用 `rtos_tick_handler()` |
+| `PendSV_Handler`  | 上下文切换，已在 `port_asm.S` 中实现 |
+| `SVC_Handler`     | 首次任务启动，已在 `port_asm.S` 中实现 |
 
-- **首次启动**：`SVC #0` 从 Handler 模式切换到 Thread 模式 + PSP。
-- **日常切换**：`PendSV`（最低优先级异常），确保在所有其他 ISR 完成后执行。
-- **栈对齐**：严格遵循 AAPCS 8 字节对齐；异常帧包含 `xPSR/PC/LR/R12/R3-R0`，软件保存 `R11-R4`。
-
-更详细的架构说明请参阅 [`docs/architecture.md`](docs/architecture.md)。
-
----
-
-## 🚀 快速开始
-
-### 1️⃣ 添加到你的 MCU 工程
-
-LinRTOS 采用**源码级集成**，推荐将本仓库作为子目录加入你的 CMake 工程：
-
-```cmake
-add_subdirectory(LinRTOS)
-target_link_libraries(your_firmware PRIVATE linrtos)
-```
-
-在你的链接脚本中确保保留 `.text` 段中的异常向量表，并导出以下三个 Handler 的符号：
-
-| 向量 | 说明 |
-|------|------|
-| `SysTick_Handler` | 系统节拍（位于 `src/tick.c`） |
-| `PendSV_Handler`  | 上下文切换（位于 `src/port/cortex_m/port_asm.S`） |
-| `SVC_Handler`     | 首次任务启动（位于 `src/port/cortex_m/port_asm.S`） |
-
-### 2️⃣ 编写任务
+若 HAL 框架已接管 `SysTick_Handler`（如 STM32 HAL），可在 HAL 的 SysTick ISR 末尾调用 `rtos_tick_handler()`：
 
 ```c
-#include "rtos.h"
+void SysTick_Handler(void)
+{
+    HAL_IncTick();
+    rtos_tick_handler();   // 追加 LinRTOS 节拍处理
+}
+```
+
+### 3. 实现 debug_puts
+
+**LinRTOS 不自带串口驱动。** 测试用例依赖 `debug_printf` 输出日志，而 `debug_printf` 内部调用 `debug_puts` 完成实际发送。你需要根据目标板实现：
+
+```c
+void debug_puts(const char *str)
+{
+    // 示例：使用 HAL UART 阻塞发送
+    HAL_UART_Transmit(&huart3, (uint8_t *)str, strlen(str), 100);
+}
+```
+
+> ⚠️ `debug_printf` 内部已包含临界区保护，你的 `debug_puts` 实现**不需要**额外关中断。
+
+### 4. 启动调度器
+
+```c
+#include "linRTOS.h"
 
 static uint32_t my_stack[128];
 
@@ -105,94 +97,84 @@ static void my_task(void *param)
 {
     (void)param;
     for (;;) {
-        /* 你的业务逻辑 */
-        rtos_task_delay(100);
+        /* 业务逻辑 */
+        rtos_task_delay(1000);
     }
 }
 
 int main(void)
 {
+    HAL_Init();            // 你的硬件初始化
+    SystemClock_Config();
+
     rtos_task_create(my_task, "my_task",
-                     my_stack, sizeof(my_stack)/sizeof(uint32_t),
+                     my_stack, sizeof(my_stack) / sizeof(uint32_t),
                      NULL, 1, NULL);
-    rtos_scheduler_start();   /* 永不返回 */
+
+    rtos_scheduler_start();   // 永不返回
 }
 ```
 
-### 3️⃣ 编译与烧录
+### 5. 配置系统（Kconfig）
+
+LinRTOS 使用 Kconfig 管理编译时配置：
 
 ```bash
-mkdir build && cd build
-cmake ..
-make
+make menuconfig       # 交互式图形配置
+make defconfig        # 加载默认配置
+make savedefconfig    # 保存当前配置到 configs/LinRTOS_defconfig
+make mrproper         # 清除配置和生成文件
 ```
 
----
-
-## 🛠️ 移植指南
-
-LinRTOS 的移植层集中在 `src/port/cortex_m/`。若你的芯片已包含 Cortex-M3/M4/M7 内核，通常**无需修改**即可运行。
-
-若需要移植到其他架构，需实现以下接口：
-
-| 函数 | 说明 |
-|------|------|
-| `rtos_port_init_stack()` | 构造任务初始栈帧（含异常帧与 R4-R11 占位） |
-| `rtos_port_enter_critical()` / `rtos_port_exit_critical()` | 临界区进入/退出 |
-| `rtos_port_request_switch()` | 触发 PendSV（或等价低优先级异常） |
-| `rtos_port_init_systick()` | 初始化系统 tick 定时器 |
-| `rtos_port_start_first_task()` | 触发 SVC 或等效机制启动第一个任务 |
-
-已在 `src/port/cortex_m/port.c` 与 `port_asm.S` 中提供参考实现。
-
-> 📖 **实战参考**：完整的 STM32G431CBUx 真实硬件移植记录（含 Makefile 集成、HAL 兼容、HardFault 排查与修复）请参阅 [`docs/porting_stm32g431.md`](docs/porting_stm32g431.md)。  
-> 🚨 **常见陷阱**：QEMU 正常但真机 HardFault？可能是 PendSV 优先级未设对！请参阅 [`docs/pendsv_priority_trap.md`](docs/pendsv_priority_trap.md)。
+配置结果生成 `include/linrtos_kconfig.h`，源码通过 `#include "config.h"` 引入。
 
 ---
 
-## 📋 API 速查
+## 测试用例
 
-### 任务管理
+`tests/` 目录提供一组验证内核功能的独立测试文件。通过 Kconfig 的 `TEST_CASE` 选项**一次只启用一个**：
 
-```c
-rtos_err_t rtos_task_create(func, name, stack_buffer, stack_depth, param, priority, &handle);
-void       rtos_task_delete(task);          /* NULL = 删除自身 */
-void       rtos_task_delay(ticks);
-void       rtos_task_delay_until(&prev, interval);
-void       rtos_task_yield(void);
-void       rtos_task_suspend(task);
-void       rtos_task_resume(task);
-void       rtos_task_set_priority(task, priority);
-uint32_t   rtos_task_get_priority(task);
-rtos_task_state_t rtos_task_get_state(task);
-uint32_t   rtos_task_get_stack_free(task);
-rtos_task_handle_t rtos_task_get_current(void);
-uint32_t   rtos_get_tick_count(void);
-int        rtos_scheduler_is_running(void);
+```bash
+make menuconfig
+# → Example Test Cases → Select test case to build
 ```
 
----
+| 测试用例 | 验证内容 |
+|---------|---------|
+| **TEST_FPU** | 多浮点任务抢占时 FPU 寄存器上下文正确保存/恢复 |
+| **TEST_SELFDELETE** | 任务自删除后空闲任务回收 TCB，回收的 TCB 可重用 |
+| **TEST_BASIC_TASKS** | 多任务创建、抢占调度、时间片轮转、`delay_until` 绝对周期精度 |
+| **TEST_SUSPEND_RESUME** | `suspend` / `resume` 挂起与恢复其他任务，自挂起后由外部恢复 |
+| **TEST_SCHED_LOCK** | `sched_lock` / `sched_unlock` 禁止/恢复抢占，嵌套锁计数 |
+| **TEST_STATE** | `get_state` / `get_priority` / `get_current` 状态查询 |
+| **TEST_PRIORITY** | `set_priority` 动态升降优先级，验证抢占行为 |
+| **TEST_YIELD** | `rtos_task_yield` 同优先级主动让出 CPU |
+| **TEST_STACK_FREE** | `rtos_task_get_stack_free` 查询剩余栈空间 |
+| **TEST_ABORT_DELAY** | `rtos_task_abort_delay` 强制唤醒阻塞中的任务 |
 
-## ⚙️ 配置裁剪
-
-编辑 `include/config.h` 或在编译时通过 `-D` 覆盖：
-
-| 宏 | 默认值 | 说明 |
-|----|:------:|------|
-| `RTOS_MAX_PRIORITIES` | 32 | 最大优先级数 |
-| `RTOS_TICK_RATE_HZ` | 1000 | 系统节拍频率 |
-| `RTOS_ENABLE_TIME_SLICING` | 1 | 同优先级时间片轮转 |
-| `RTOS_ENABLE_IDLE_HOOK` | 0 | 空闲任务钩子 |
-
----
-
-## ⚠️ 已知限制
-
-- 📝 **FPU 支持**：尚未实现 Cortex-M4F/M7 的浮点上下文保存（`S16-S31`）。若任务使用 `float`/`double`，需关闭硬件 FPU 或后续添加 Lazy Stacking 支持。
-- 📝 **内存分配**：当前采用静态对象池（TCB 等），不支持运行时 `malloc`。如需动态创建大量任务，可增大 `RTOS_MAX_TASKS` 宏。
+每个测试文件实现 `app_entry_task(void *param)` 作为统一入口，由示例工程的 `main()` 调用创建。
 
 ---
 
-## 📄 许可证
+## STM32G431 示例编译与烧录
+
+项目根目录提供一键编译和烧录命令（需安装 `arm-none-eabi-gcc` 和 `openocd`）：
+
+```bash
+# 配置测试用例
+make menuconfig
+
+# 编译 STM32G431 示例工程
+make build-g431
+
+# 编译并烧录（通过 CMSIS-DAP / ST-Link）
+make flash-g431
+```
+
+`make build-g431` 会自动检测 `include/linrtos_kconfig.h` 是否存在，若缺失则先执行 `make defconfig`。`make flash-g431` 依赖 `build-g431`，编译完成后调用 OpenOCD 烧录并复位。
+
+---
+
+## 许可证
 
 MIT License — 详见各源文件头。
