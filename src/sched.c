@@ -42,20 +42,24 @@ void rtos_kernel_init(void)
 
 void rtos_task_ready(struct rtos_tcb *tcb)
 {
+    RTOS_ENTER_CRITICAL();
     uint32_t prio = tcb->priority;
     rtos_list_insert_before(&g_kernel.ready_list[prio], &tcb->ready_node);
     g_kernel.ready_map |= ((rtos_ready_map_t)1 << prio);
     tcb->state = RTOS_TASK_READY;
+    RTOS_EXIT_CRITICAL();
 }
 
 void rtos_task_unready(struct rtos_tcb *tcb)
 {
+    RTOS_ENTER_CRITICAL();
     uint32_t prio = tcb->priority;
     rtos_list_remove(&tcb->ready_node);
     if (rtos_list_is_empty(&g_kernel.ready_list[prio])) {
         g_kernel.ready_map &= ~((rtos_ready_map_t)1 << prio);
     }
     tcb->state = RTOS_TASK_BLOCKED;
+    RTOS_EXIT_CRITICAL();
 }
 
 /* ============================================================
@@ -64,8 +68,11 @@ void rtos_task_unready(struct rtos_tcb *tcb)
 
 struct rtos_tcb *rtos_pick_highest_ready(void)
 {
+    RTOS_ENTER_CRITICAL();
     if (g_kernel.ready_map == 0) {
-        return g_kernel.idle_task;
+        struct rtos_tcb *tcb = g_kernel.idle_task;
+        RTOS_EXIT_CRITICAL();
+        return tcb;
     }
 
 #if RTOS_MAX_PRIORITIES <= 32
@@ -82,7 +89,9 @@ struct rtos_tcb *rtos_pick_highest_ready(void)
 #endif
 
     struct rtos_list_node *node = g_kernel.ready_list[prio].next;
-    return rtos_list_entry(node, struct rtos_tcb, ready_node);
+    struct rtos_tcb *tcb = rtos_list_entry(node, struct rtos_tcb, ready_node);
+    RTOS_EXIT_CRITICAL();
+    return tcb;
 }
 
 /* ============================================================
@@ -142,12 +151,17 @@ void rtos_sched_yield(void)
 
 /* ============================================================
  * 🔄 时间片轮转（同优先级）
+ *
+ * 注意：调用者必须处于临界区内（如 tick.c 的 rtos_tick_handler）。
+ * 本函数直接操作 ready_list 和 need_resched，不加额外保护。
  * ============================================================ */
 
 #if RTOS_ENABLE_TIME_SLICING
 void rtos_sched_time_slice(struct rtos_tcb *tcb)
 {
+    RTOS_ENTER_CRITICAL();
     if (tcb->state != RTOS_TASK_RUNNING && tcb->state != RTOS_TASK_READY) {
+        RTOS_EXIT_CRITICAL();
         return;
     }
     if (tcb->time_slice > 0) {
@@ -164,5 +178,6 @@ void rtos_sched_time_slice(struct rtos_tcb *tcb)
             }
         }
     }
+    RTOS_EXIT_CRITICAL();
 }
 #endif
