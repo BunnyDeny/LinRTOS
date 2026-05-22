@@ -56,4 +56,33 @@ config RTOS_IDLE_STACK_SIZE
 	help
 	  Stack size in uint32_t words.
 
+menu "Example Test Cases"
+
+choice TEST_CASE
+	prompt "Select test case to build"
+	default TEST_FPU_SELFDELETE
+	help
+	  Only one test case can be compiled at a time.
+	  Each test file provides app_entry_start().
+
+config TEST_FPU_SELFDELETE
+	bool "FPU context switch + self-delete recycle"
+	help
+	  Multi-task preemption, FPU register verification,
+	  and cyclic create/self-delete with TCB reuse.
+
+config TEST_BASIC_TASKS
+	bool "Basic multi-task + delay"
+	help
+	  Simple multi-task creation and rtos_task_delay test.
+
+config TEST_SUSPEND_RESUME
+	bool "Task suspend and resume"
+	help
+	  Verify rtos_task_suspend / rtos_task_resume APIs.
+
+endchoice
+
+endmenu
+
 endmenu
