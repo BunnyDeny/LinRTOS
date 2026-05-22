@@ -98,10 +98,9 @@ struct rtos_tcb *rtos_pick_highest_ready(void)
 struct rtos_tcb *rtos_switch_context(void)
 {
     struct rtos_tcb *curr = (struct rtos_tcb *)rtos_current_tcb;
+    RTOS_ENTER_CRITICAL();
     struct rtos_tcb *next = rtos_pick_highest_ready();
-
     if (next != curr) {
-        RTOS_ENTER_CRITICAL();
         if (curr && curr->state == RTOS_TASK_RUNNING) {
             curr->state = RTOS_TASK_READY;
         }
