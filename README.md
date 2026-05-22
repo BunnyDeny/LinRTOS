@@ -122,7 +122,7 @@ LinRTOS 使用 Kconfig 管理编译时配置：
 ```bash
 make menuconfig       # 交互式图形配置
 make defconfig        # 加载默认配置
-make savedefconfig    # 将当前配置中与默认值不同的项保存为最小 defconfig，覆盖 configs/LinRTOS_defconfig
+make savedefconfig    # 将当前配置中与默认值不同的项保存为最小 defconfig（根目录 defconfig），不覆盖默认模板
 make mrproper         # 清除配置和生成文件
 ```
 
@@ -156,22 +156,22 @@ make menuconfig
 
 ---
 
-## STM32G431 示例编译与烧录
+## 示例：STM32G431 编译与烧录
 
-项目根目录提供一键编译和烧录命令（需安装 `arm-none-eabi-gcc` 和 `openocd`）：
+> ⚠️ 以下命令仅适用于项目自带的 **STM32G431CBUx + CMSIS-DAP** 示例工程。你的目标板型号和调试器可能不同，需自行修改 `examples/stm32g431/Makefile` 和 `flash-g431` 中的 OpenOCD 参数。
 
 ```bash
-# 配置测试用例
+# 1. 选择测试用例
 make menuconfig
 
-# 编译 STM32G431 示例工程
+# 2. 编译示例工程（会自动补全 defconfig 和头文件）
 make build-g431
 
-# 编译并烧录（通过 CMSIS-DAP / ST-Link）
+# 3. 编译并烧录（OpenOCD + CMSIS-DAP）
 make flash-g431
 ```
 
-`make build-g431` 会自动检测 `include/linrtos_kconfig.h` 是否存在，若缺失则先执行 `make defconfig`。`make flash-g431` 依赖 `build-g431`，编译完成后调用 OpenOCD 烧录并复位。
+`make build-g431` 会自动检测 `include/linrtos_kconfig.h` 是否存在，若缺失则先执行 `make defconfig`。`make flash-g431` 依赖 `build-g431`，编译完成后调用 OpenOCD 烧录并复位。如果你使用 ST-Link 或其他调试器，请修改 `flash-g431` 中的 OpenOCD 接口配置。
 
 ---
 
