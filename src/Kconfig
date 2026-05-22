@@ -91,10 +91,20 @@ config TEST_PRIORITY_CHANGE
 	help
 	  Verify rtos_task_set_priority / get_priority / get_state / get_current.
 
-config TEST_YIELD_ABORT
-	bool "Task yield + abort delay + stack free"
+config TEST_YIELD
+	bool "Task yield"
 	help
-	  Verify rtos_task_yield / abort_delay / get_stack_free / is_running.
+	  Verify rtos_task_yield on same-priority tasks.
+
+config TEST_STACK_FREE
+	bool "Stack free query"
+	help
+	  Verify rtos_task_get_stack_free API.
+
+config TEST_ABORT_DELAY
+	bool "Abort delay"
+	help
+	  Verify rtos_task_abort_delay and rtos_scheduler_is_running.
 
 endchoice
 
