@@ -105,6 +105,8 @@ static void task_ctrl(void *param)
                  (unsigned long)s_high_ran_tick);
 
     for (;;) {
+        debug_printf("[CTRL] idle heartbeat tick=%lu\r\n",
+                     (unsigned long)rtos_get_tick_count());
         rtos_task_delay(1000);
     }
 }
