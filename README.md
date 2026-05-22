@@ -122,7 +122,7 @@ LinRTOS 使用 Kconfig 管理编译时配置：
 ```bash
 make menuconfig       # 交互式图形配置
 make defconfig        # 加载默认配置
-make savedefconfig    # 保存当前配置到 configs/LinRTOS_defconfig
+make savedefconfig    # 将当前配置中与默认值不同的项保存为最小 defconfig，覆盖 configs/LinRTOS_defconfig
 make mrproper         # 清除配置和生成文件
 ```
 
