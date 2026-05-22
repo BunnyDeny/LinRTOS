@@ -5,6 +5,7 @@
 #include "stm32g4xx_hal.h"
 #include "usart.h"
 #include "kernel.h"
+#include "linRTOS.h"
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -33,9 +34,11 @@ void debug_puts(const char *str)
 
 void debug_printf(const char *fmt, ...)
 {
+    RTOS_ENTER_CRITICAL();
     va_list ap;
     va_start(ap, fmt);
     vsnprintf(s_debug_buf, sizeof(s_debug_buf), fmt, ap);
     va_end(ap);
     debug_puts(s_debug_buf);
+    RTOS_EXIT_CRITICAL();
 }

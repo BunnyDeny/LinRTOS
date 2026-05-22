@@ -29,10 +29,10 @@ static void task_low(void *param)
 {
     (void)param;
     for (;;) {
-        debug_printf("[LOW ] delaying 1000 ticks\r\n");
+    debug_printf("[LOW ] delaying 1000 ticks\r\n");
         rtos_task_delay(1000);
         debug_printf("[LOW ] woken at tick=%lu\r\n",
-                     (unsigned long)rtos_get_tick_count());
+                         (unsigned long)rtos_get_tick_count());
     }
 }
 
@@ -45,16 +45,16 @@ static void task_ctrl(void *param)
     (void)param;
 
     debug_printf("[CTRL] scheduler is_running=%d\r\n",
-                 rtos_scheduler_is_running());
+                     rtos_scheduler_is_running());
 
     for (int i = 0; i < 3; i++) {
         rtos_task_delay(600);
         debug_printf("[CTRL] abort_delay low task (attempt %d)\r\n", i + 1);
         rtos_err_t err = rtos_task_abort_delay(h_low);
         if (err == RTOS_OK) {
-            debug_printf("[CTRL] abort_delay OK\r\n");
+        debug_printf("[CTRL] abort_delay OK\r\n");
         } else {
-            debug_printf("[CTRL] abort_delay failed err=%d\r\n", (int)err);
+        debug_printf("[CTRL] abort_delay failed err=%d\r\n", (int)err);
         }
     }
 

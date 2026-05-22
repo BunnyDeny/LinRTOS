@@ -34,11 +34,9 @@ static void task_high(void *param)
     (void)param;
     for (;;) {
         s_high_count++;
-        RTOS_ENTER_CRITICAL();
         debug_printf("[HIGH] tick=%lu count=%lu\r\n",
                      (unsigned long)rtos_get_tick_count(),
                      (unsigned long)s_high_count);
-        RTOS_EXIT_CRITICAL();
         rtos_task_delay(500);
     }
 }
@@ -51,19 +49,11 @@ static void task_test(void *param)
 {
     (void)param;
     s_test_count++;
-    {
-        RTOS_ENTER_CRITICAL();
-        debug_printf("[TEST] run #%lu, tick=%lu\r\n",
+    debug_printf("[TEST] run #%lu, tick=%lu\r\n",
                      (unsigned long)s_test_count,
                      (unsigned long)rtos_get_tick_count());
-        RTOS_EXIT_CRITICAL();
-    }
     rtos_task_delay(300);
-    {
-        RTOS_ENTER_CRITICAL();
-        debug_printf("[TEST] self-delete\r\n");
-        RTOS_EXIT_CRITICAL();
-    }
+    debug_printf("[TEST] self-delete\r\n");
     rtos_task_delete(NULL);
 }
 
@@ -76,25 +66,19 @@ static void task_low(void *param)
     (void)param;
     for (;;) {
         s_low_count++;
-        {
-            RTOS_ENTER_CRITICAL();
-            debug_printf("[LOW ] tick=%lu count=%lu test_count=%lu\r\n",
+        debug_printf("[LOW ] tick=%lu count=%lu test_count=%lu\r\n",
                          (unsigned long)rtos_get_tick_count(),
                          (unsigned long)s_low_count,
                          (unsigned long)s_test_count);
-            RTOS_EXIT_CRITICAL();
-        }
         rtos_err_t err = rtos_task_create(task_test, "test",
                                           task_test_stack, 128, NULL, 2, NULL);
         {
-            RTOS_ENTER_CRITICAL();
             if (err != RTOS_OK) {
-                debug_printf("[LOW ] create test FAILED! err=%d (pool exhausted?)\r\n",
+            debug_printf("[LOW ] create test FAILED! err=%d (pool exhausted?)\r\n",
                              (int)err);
             } else {
-                debug_printf("[LOW ] create test OK\r\n");
+            debug_printf("[LOW ] create test OK\r\n");
             }
-            RTOS_EXIT_CRITICAL();
         }
         rtos_task_delay(1000);
     }
@@ -108,9 +92,7 @@ void app_entry_task(void *param)
 {
     (void)param;
 
-    RTOS_ENTER_CRITICAL();
     debug_printf("=== Test: Self-Delete Recycle ===\r\n");
-    RTOS_EXIT_CRITICAL();
 
     rtos_task_create(task_high, "high", task_high_stack, 128, NULL, 3, NULL);
     rtos_task_create(task_low,  "low",  task_low_stack,  128, NULL, 1, NULL);

@@ -28,8 +28,8 @@ static void task_a(void *param)
     for (int i = 0; i < 3; i++) {
         uint32_t free = rtos_task_get_stack_free(NULL);
         debug_printf("[A   ] tick=%lu stack_free=%lu\r\n",
-                     (unsigned long)rtos_get_tick_count(),
-                     (unsigned long)free);
+                         (unsigned long)rtos_get_tick_count(),
+                         (unsigned long)free);
         rtos_task_delay(200);
     }
     debug_printf("[A   ] stack_free test done\r\n");
@@ -46,8 +46,8 @@ static void task_b(void *param)
     for (int i = 0; i < 3; i++) {
         uint32_t free = rtos_task_get_stack_free(NULL);
         debug_printf("[B   ] tick=%lu stack_free=%lu\r\n",
-                     (unsigned long)rtos_get_tick_count(),
-                     (unsigned long)free);
+                         (unsigned long)rtos_get_tick_count(),
+                         (unsigned long)free);
         rtos_task_delay(200);
     }
     debug_printf("[B   ] stack_free test done\r\n");

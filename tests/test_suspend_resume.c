@@ -40,8 +40,8 @@ static void task_worker(void *param)
     for (;;) {
         s_worker_count++;
         debug_printf("[WORK] tick=%lu count=%lu\r\n",
-                     (unsigned long)rtos_get_tick_count(),
-                     (unsigned long)s_worker_count);
+                         (unsigned long)rtos_get_tick_count(),
+                         (unsigned long)s_worker_count);
         rtos_task_delay(100);
     }
 }
@@ -58,11 +58,11 @@ static void task_self_suspend(void *param)
     for (;;) {
         s_self_suspend_count++;
         debug_printf("[SELF] tick=%lu count=%lu\r\n",
-                     (unsigned long)rtos_get_tick_count(),
-                     (unsigned long)s_self_suspend_count);
+                         (unsigned long)rtos_get_tick_count(),
+                         (unsigned long)s_self_suspend_count);
 
         if (s_self_suspend_count >= 3) {
-            debug_printf("[SELF] auto-suspending myself\r\n");
+        debug_printf("[SELF] auto-suspending myself\r\n");
             s_self_suspend_count = 0;
             rtos_task_suspend(NULL);   /* 自挂起 */
             /* 恢复后继续从这里执行 */
@@ -85,22 +85,22 @@ static void task_ctrl(void *param)
     for (;;) {
         cycle++;
         debug_printf("[CTRL] cycle=%d tick=%lu worker=%lu\r\n",
-                     cycle,
-                     (unsigned long)rtos_get_tick_count(),
-                     (unsigned long)s_worker_count);
+                         cycle,
+                         (unsigned long)rtos_get_tick_count(),
+                         (unsigned long)s_worker_count);
 
         /* 每 2 个周期切换工作者的挂起/恢复状态 */
         if (cycle % 2 == 1) {
-            debug_printf("[CTRL] suspending worker\r\n");
+        debug_printf("[CTRL] suspending worker\r\n");
             rtos_task_suspend(h_worker);
         } else {
-            debug_printf("[CTRL] resuming worker\r\n");
+        debug_printf("[CTRL] resuming worker\r\n");
             rtos_task_resume(h_worker);
         }
 
         /* 每 3 个周期恢复一次自挂起任务 */
         if (cycle % 3 == 0) {
-            debug_printf("[CTRL] resuming self-suspend task\r\n");
+        debug_printf("[CTRL] resuming self-suspend task\r\n");
             rtos_task_resume(h_self_suspend);
         }
 

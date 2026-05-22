@@ -32,7 +32,7 @@ static void task_high(void *param)
     (void)param;
     s_high_ran_tick = rtos_get_tick_count();
     debug_printf("[HIGH] ran at tick=%lu\r\n",
-                 (unsigned long)s_high_ran_tick);
+                     (unsigned long)s_high_ran_tick);
     rtos_task_delete(NULL);
 }
 
@@ -56,17 +56,17 @@ static void task_ctrl(void *param)
     rtos_task_create(task_high, "high", task_high_stack, 128, NULL, 3, NULL);
 
     if (s_high_ran_tick == 0) {
-        debug_printf("[CTRL] inside lock: high NOT ran (ok)\r\n");
+    debug_printf("[CTRL] inside lock: high NOT ran (ok)\r\n");
     } else {
-        debug_printf("[CTRL] inside lock: high ALREADY ran at %lu (BUG!)\r\n",
-                     (unsigned long)s_high_ran_tick);
+    debug_printf("[CTRL] inside lock: high ALREADY ran at %lu (BUG!)\r\n",
+                         (unsigned long)s_high_ran_tick);
     }
 
     rtos_sched_unlock();
     t = rtos_get_tick_count();
     debug_printf("[CTRL] unlocked at tick=%lu high_ran_at=%lu\r\n",
-                 (unsigned long)t,
-                 (unsigned long)s_high_ran_tick);
+                     (unsigned long)t,
+                     (unsigned long)s_high_ran_tick);
 
     /* 等待空闲任务回收 task_high 的 TCB */
     rtos_task_delay(2);
@@ -86,27 +86,27 @@ static void task_ctrl(void *param)
 
     rtos_sched_unlock();  /* 3 -> 2 */
     if (s_high_ran_tick == 0) {
-        debug_printf("[CTRL] after 1st unlock: high NOT ran (ok, lock=2)\r\n");
+    debug_printf("[CTRL] after 1st unlock: high NOT ran (ok, lock=2)\r\n");
     } else {
-        debug_printf("[CTRL] after 1st unlock: high ALREADY ran (BUG!)\r\n");
+    debug_printf("[CTRL] after 1st unlock: high ALREADY ran (BUG!)\r\n");
     }
 
     rtos_sched_unlock();  /* 2 -> 1 */
     if (s_high_ran_tick == 0) {
-        debug_printf("[CTRL] after 2nd unlock: high NOT ran (ok, lock=1)\r\n");
+    debug_printf("[CTRL] after 2nd unlock: high NOT ran (ok, lock=1)\r\n");
     } else {
-        debug_printf("[CTRL] after 2nd unlock: high ALREADY ran (BUG!)\r\n");
+    debug_printf("[CTRL] after 2nd unlock: high ALREADY ran (BUG!)\r\n");
     }
 
     rtos_sched_unlock();  /* 1 -> 0，真正释放 */
     t = rtos_get_tick_count();
     debug_printf("[CTRL] full unlocked at tick=%lu high_ran_at=%lu\r\n",
-                 (unsigned long)t,
-                 (unsigned long)s_high_ran_tick);
+                     (unsigned long)t,
+                     (unsigned long)s_high_ran_tick);
 
     for (;;) {
-        debug_printf("[CTRL] idle heartbeat tick=%lu\r\n",
-                     (unsigned long)rtos_get_tick_count());
+    debug_printf("[CTRL] idle heartbeat tick=%lu\r\n",
+                         (unsigned long)rtos_get_tick_count());
         rtos_task_delay(1000);
     }
 }

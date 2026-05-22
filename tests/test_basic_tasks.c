@@ -39,8 +39,8 @@ static void task_high(void *param)
     for (;;) {
         s_high_count++;
         debug_printf("[HIGH] tick=%lu count=%lu\r\n",
-                     (unsigned long)rtos_get_tick_count(),
-                     (unsigned long)s_high_count);
+                         (unsigned long)rtos_get_tick_count(),
+                         (unsigned long)s_high_count);
         rtos_task_delay(200);
     }
 }
@@ -55,8 +55,8 @@ static void task_mid(void *param)
     for (;;) {
         s_mid_count++;
         debug_printf("[MID ] tick=%lu count=%lu\r\n",
-                     (unsigned long)rtos_get_tick_count(),
-                     (unsigned long)s_mid_count);
+                         (unsigned long)rtos_get_tick_count(),
+                         (unsigned long)s_mid_count);
         rtos_task_delay(400);
     }
 }
@@ -71,8 +71,8 @@ static void task_low(void *param)
     for (;;) {
         s_low_count++;
         debug_printf("[LOW ] tick=%lu count=%lu\r\n",
-                     (unsigned long)rtos_get_tick_count(),
-                     (unsigned long)s_low_count);
+                         (unsigned long)rtos_get_tick_count(),
+                         (unsigned long)s_low_count);
         rtos_task_delay(800);
     }
 }
@@ -90,9 +90,9 @@ static void task_periodic(void *param)
         uint32_t now = rtos_get_tick_count();
         int32_t jitter = (int32_t)(now - prev_wake);
         debug_printf("[PER ] tick=%lu count=%lu jitter=%ld\r\n",
-                     (unsigned long)now,
-                     (unsigned long)s_periodic_count,
-                     (long)jitter);
+                         (unsigned long)now,
+                         (unsigned long)s_periodic_count,
+                         (long)jitter);
         rtos_task_delay_until(&prev_wake, 500);
     }
 }
