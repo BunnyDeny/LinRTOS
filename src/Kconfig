@@ -27,7 +27,7 @@ config RTOS_ENABLE_TIME_SLICING
 
 config RTOS_TIME_SLICE_TICKS
 	int "Time slice length (ticks)"
-	default 1
+	default 100
 	depends on RTOS_ENABLE_TIME_SLICING
 	help
 	  Number of ticks before switching to next same-priority task.
