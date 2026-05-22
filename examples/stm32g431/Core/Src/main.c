@@ -42,7 +42,7 @@ int main(void)
     rtos_task_create(app_entry_task, "app",
                      app_entry_stack,
                      sizeof(app_entry_stack) / sizeof(uint32_t),
-                     NULL, 1, NULL);
+                     NULL, 20, NULL);
 
     rtos_scheduler_start();
 

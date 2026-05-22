@@ -33,11 +33,15 @@ static void task_a(void *param)
 {
     (void)param;
     for (int i = 0; i < 5; i++) {
+        RTOS_ENTER_CRITICAL();
         debug_printf("[A   ] tick=%lu yield->B\r\n",
                      (unsigned long)rtos_get_tick_count());
+        RTOS_EXIT_CRITICAL();
         rtos_task_yield();
     }
+    RTOS_ENTER_CRITICAL();
     debug_printf("[A   ] yield test done\r\n");
+    RTOS_EXIT_CRITICAL();
     for (;;) {
         rtos_task_delay(1000);
     }
@@ -51,11 +55,15 @@ static void task_b(void *param)
 {
     (void)param;
     for (int i = 0; i < 5; i++) {
+        RTOS_ENTER_CRITICAL();
         debug_printf("[B   ] tick=%lu yield->A\r\n",
                      (unsigned long)rtos_get_tick_count());
+        RTOS_EXIT_CRITICAL();
         rtos_task_yield();
     }
+    RTOS_ENTER_CRITICAL();
     debug_printf("[B   ] yield test done\r\n");
+    RTOS_EXIT_CRITICAL();
     for (;;) {
         rtos_task_delay(1000);
     }

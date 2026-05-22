@@ -370,10 +370,10 @@ rtos_task_state_t rtos_task_get_state(rtos_task_handle_t task)
 {
     struct rtos_tcb *tcb = (struct rtos_tcb *)task;
     if (!tcb) {
-        return RTOS_TASK_DELETED;
+      tcb = (struct rtos_tcb *)rtos_current_tcb;
     }
     return tcb->state;
-}
+  }
 
 uint32_t rtos_task_get_stack_free(rtos_task_handle_t task)
 {
