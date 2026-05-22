@@ -60,21 +60,25 @@ menu "Example Test Cases"
 
 choice TEST_CASE
 	prompt "Select test case to build"
-	default TEST_FPU_SELFDELETE
+	default TEST_FPU
 	help
 	  Only one test case can be compiled at a time.
 	  Each test file provides app_entry_start().
 
-config TEST_FPU_SELFDELETE
-	bool "FPU context switch + self-delete recycle"
+config TEST_FPU
+	bool "FPU context switch"
 	help
-	  Multi-task preemption, FPU register verification,
-	  and cyclic create/self-delete with TCB reuse.
+	  Multi-task preemption with FPU register verification.
+
+config TEST_SELFDELETE
+	bool "Self-delete recycle"
+	help
+	  Cyclic create/self-delete with TCB reuse by idle task.
 
 config TEST_BASIC_TASKS
-	bool "Basic multi-task + delay"
+	bool "Basic multi-task"
 	help
-	  Simple multi-task creation and rtos_task_delay test.
+	  Simple multi-task creation and preemption scheduling test.
 
 config TEST_SUSPEND_RESUME
 	bool "Task suspend and resume"
@@ -86,10 +90,15 @@ config TEST_SCHED_LOCK
 	help
 	  Verify rtos_sched_lock / rtos_sched_unlock and nesting.
 
-config TEST_PRIORITY_CHANGE
-	bool "Dynamic priority change + state query"
+config TEST_STATE
+	bool "Task state query"
 	help
-	  Verify rtos_task_set_priority / get_priority / get_state / get_current.
+	  Verify rtos_task_get_state / get_priority / get_current.
+
+config TEST_PRIORITY
+	bool "Dynamic priority change"
+	help
+	  Verify rtos_task_set_priority and preemption after priority change.
 
 config TEST_YIELD
 	bool "Task yield"

@@ -47,11 +47,13 @@ Core/Src/linrtos_sys.c \
 ../../src/task.c \
 ../../src/tick.c \
 ../../src/port/cortex_m/port.c \
-../../tests/test_fpu_selfdelete.c \
+../../tests/test_fpu.c \
+../../tests/test_selfdelete.c \
 ../../tests/test_basic_tasks.c \
 ../../tests/test_suspend_resume.c \
 ../../tests/test_sched_lock.c \
-../../tests/test_priority_change.c \
+../../tests/test_state.c \
+../../tests/test_priority.c \
 ../../tests/test_yield.c \
 ../../tests/test_stack_free.c \
 ../../tests/test_abort_delay.c \
