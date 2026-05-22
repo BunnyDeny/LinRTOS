@@ -81,6 +81,11 @@ config TEST_SUSPEND_RESUME
 	help
 	  Verify rtos_task_suspend / rtos_task_resume APIs.
 
+config TEST_SCHED_LOCK
+	bool "Scheduler lock nested/unlock test"
+	help
+	  Verify rtos_sched_lock / rtos_sched_unlock and nesting.
+
 endchoice
 
 endmenu

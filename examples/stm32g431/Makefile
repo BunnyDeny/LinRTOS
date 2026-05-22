@@ -50,6 +50,7 @@ Core/Src/linrtos_sys.c \
 ../../tests/test_fpu_selfdelete.c \
 ../../tests/test_basic_tasks.c \
 ../../tests/test_suspend_resume.c \
+../../tests/test_sched_lock.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_pwr_ex.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart_ex.c \
