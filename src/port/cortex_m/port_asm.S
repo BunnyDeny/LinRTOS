@@ -80,6 +80,9 @@ SVC_Handler:
  *
  * 由 rtos_port_request_switch() 置位 PENDSVSET 触发。
  * PendSV 优先级应设为最低，确保在所有其他中断处理完毕后执行。
+ * 否则Pendsv嵌套其他中断的时候，硬件自动保存/加载错误的msp堆栈指
+ * 针将中断上下文的特殊寄存器的内容到任务的堆栈中，从而在任务
+ * 引发非法内存访问错误
  *
  * 关键设计变更：不在 C 层预决策下一个任务，而是直接在 PendSV 中
  * 调用 rtos_switch_context() 重新 O(1) 查找最高优先级就绪任务，
