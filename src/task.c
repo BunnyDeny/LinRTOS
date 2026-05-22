@@ -332,16 +332,22 @@ void rtos_task_yield(void)
 
 rtos_task_handle_t rtos_task_get_current(void)
 {
-    return (struct rtos_tcb *)rtos_current_tcb;
+    RTOS_ENTER_CRITICAL();
+    rtos_task_handle_t tcb = (rtos_task_handle_t)rtos_current_tcb;
+    RTOS_EXIT_CRITICAL();
+    return tcb;
 }
 
 uint32_t rtos_task_get_priority(rtos_task_handle_t task)
 {
+    RTOS_ENTER_CRITICAL();
     struct rtos_tcb *tcb = (struct rtos_tcb *)task;
     if (!tcb) {
         tcb = (struct rtos_tcb *)rtos_current_tcb;
     }
-    return tcb ? tcb->priority : 0;
+    uint32_t prio = tcb ? tcb->priority : 0;
+    RTOS_EXIT_CRITICAL();
+    return prio;
 }
 
 void rtos_task_set_priority(rtos_task_handle_t task, uint32_t priority)
@@ -368,20 +374,25 @@ void rtos_task_set_priority(rtos_task_handle_t task, uint32_t priority)
 
 rtos_task_state_t rtos_task_get_state(rtos_task_handle_t task)
 {
+    RTOS_ENTER_CRITICAL();
     struct rtos_tcb *tcb = (struct rtos_tcb *)task;
     if (!tcb) {
-      tcb = (struct rtos_tcb *)rtos_current_tcb;
+        tcb = (struct rtos_tcb *)rtos_current_tcb;
     }
-    return tcb->state;
-  }
+    rtos_task_state_t state = tcb->state;
+    RTOS_EXIT_CRITICAL();
+    return state;
+}
 
 uint32_t rtos_task_get_stack_free(rtos_task_handle_t task)
 {
+    RTOS_ENTER_CRITICAL();
     struct rtos_tcb *tcb = (struct rtos_tcb *)task;
     if (!tcb) {
         tcb = (struct rtos_tcb *)rtos_current_tcb;
     }
     if (!tcb) {
+        RTOS_EXIT_CRITICAL();
         return 0;
     }
 
@@ -391,17 +402,24 @@ uint32_t rtos_task_get_stack_free(rtos_task_handle_t task)
         p++;
         free++;
     }
+    RTOS_EXIT_CRITICAL();
     return free;
 }
 
 uint32_t rtos_get_tick_count(void)
 {
-    return g_kernel.tick_count;
+    RTOS_ENTER_CRITICAL();
+    uint32_t tick = g_kernel.tick_count;
+    RTOS_EXIT_CRITICAL();
+    return tick;
 }
 
 int rtos_scheduler_is_running(void)
 {
-    return g_kernel.is_running;
+    RTOS_ENTER_CRITICAL();
+    int running = g_kernel.is_running;
+    RTOS_EXIT_CRITICAL();
+    return running;
 }
 
 /* ============================================================
