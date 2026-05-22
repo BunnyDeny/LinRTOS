@@ -10,7 +10,7 @@ help:
 	@echo "  make oldconfig       - Update .config with defaults for new symbols"
 	@echo "  make defconfig       - Load default config (configs/LinRTOS_defconfig)"
 	@echo "  make xxx_defconfig   - Load configs/xxx_defconfig and generate header"
-	@echo "  make savedefconfig   - Save minimal config to configs/defconfig"
+	@echo "  make savedefconfig   - Save current config to configs/defconfig"
 	@echo "  make build-g431      - Build stm32g431 example project"
 	@echo "  make flash-g431      - Build and flash stm32g431 via OpenOCD (CMSIS-DAP)"
 	@echo "  make mrproper        - Remove .config, generated headers, and example build/"
