@@ -106,9 +106,8 @@ struct rtos_tcb *rtos_switch_context(void)
         }
         next->state = RTOS_TASK_RUNNING;
         rtos_current_tcb = next;
-        RTOS_EXIT_CRITICAL();
     }
-
+    RTOS_EXIT_CRITICAL();
     return next;
 }
 
