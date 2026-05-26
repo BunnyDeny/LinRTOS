@@ -57,23 +57,22 @@
     #define __GNUC__                    1
     #endif
 
-#elif defined(ARCH_COMPILER_MDK)
-    #if defined(ARCH_MDK_AC5)
-        /* Legacy ARM Compiler 5 (armcc) */
-        #ifndef __CC_ARM
-        #define __CC_ARM                1
-        #endif
-    #elif defined(ARCH_MDK_AC6)
-        /* ARM Compiler 6 (Clang-based).
-         * AC6 自身已定义 __ARMCC_VERSION（>= 6010050）和 __clang__。
-         * 仅在编译器未定义时做兜底补充（例如用 GCC 模拟测试场景）。
-         */
-        #ifndef __ARMCC_VERSION
-        #define __ARMCC_VERSION         6010000
-        #endif
-        #ifndef __clang__
-        #define __clang__               1
-        #endif
+#elif defined(ARCH_MDK_AC5)
+    /* Legacy ARM Compiler 5 (armcc) */
+    #ifndef __CC_ARM
+    #define __CC_ARM                    1
+    #endif
+
+#elif defined(ARCH_MDK_AC6)
+    /* ARM Compiler 6 (Clang-based).
+     * AC6 自身已定义 __ARMCC_VERSION（>= 6010050）和 __clang__。
+     * 仅在编译器未定义时做兜底补充（例如用 GCC 模拟测试场景）。
+     */
+    #ifndef __ARMCC_VERSION
+    #define __ARMCC_VERSION             6010000
+    #endif
+    #ifndef __clang__
+    #define __clang__                   1
     #endif
 
 #elif defined(ARCH_COMPILER_IAR)

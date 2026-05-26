@@ -52,37 +52,24 @@ config ARCH_COMPILER_GCC
       GNU Compiler Collection (e.g. arm-none-eabi-gcc).
       Uses standard GCC inline assembly syntax.
 
-config ARCH_COMPILER_MDK
-    bool "MDK (Keil)"
+config ARCH_MDK_AC5
+    bool "MDK — ARM Compiler 5 (armcc)"
     help
-      Keil MDK. Please select the ARM Compiler version below.
+      Legacy ARM Compiler 5 shipped with Keil MDK.
+      Requires embedded assembly syntax in port.c.
+
+config ARCH_MDK_AC6
+    bool "MDK — ARM Compiler 6 (armclang, LLVM-based)"
+    help
+      Modern Clang-based toolchain shipped with Keil MDK.
+      Compatible with GCC-style inline assembly (shares the same
+      port layer code path as GCC). Defines both __ARMCC_VERSION
+      and __clang__.
 
 config ARCH_COMPILER_IAR
     bool "IAR Embedded Workbench"
     help
       IAR C/C++ Compiler for ARM (iccarm).
 endchoice
-
-if ARCH_COMPILER_MDK
-
-choice ARCH_MDK_VERSION
-    default ARCH_MDK_AC6
-
-config ARCH_MDK_AC5
-    bool "ARM Compiler 5 (armcc)"
-    help
-      Legacy ARM Compiler 5. Requires embedded assembly syntax
-      in port.c (already implemented).
-
-config ARCH_MDK_AC6
-    bool "ARM Compiler 6 (armclang, LLVM-based)"
-    help
-      Modern Clang-based toolchain shipped with Keil MDK.
-      Compatible with GCC-style inline assembly (shares the same
-      port layer code path as GCC). Defines both __ARMCC_VERSION
-      and __clang__.
-endchoice
-
-endif
 
 endmenu
