@@ -10,7 +10,7 @@
 #include "linRTOS.h"
 #include "cli_io.h"
 
-#ifdef TEST_PRIORITY
+#if defined(ENABLE_TEST_CASES) && defined(TEST_PRIORITY)
 
 
 /* ============================================================

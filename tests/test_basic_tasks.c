@@ -12,7 +12,7 @@
 #include "linRTOS.h"
 #include "cli_io.h"
 
-#ifdef TEST_BASIC_TASKS
+#if defined(ENABLE_TEST_CASES) && defined(TEST_BASIC_TASKS)
 
 
 /* ============================================================

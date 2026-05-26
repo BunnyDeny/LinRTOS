@@ -24,9 +24,7 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 
 /* USER CODE BEGIN 0 */
-extern void app_entry_task(void *param);
 
-static uint32_t app_entry_stack[256];
 /* USER CODE END 0 */
 
 int main(void)
@@ -42,11 +40,6 @@ int main(void)
 
     HAL_UARTEx_ReceiveToIdle_DMA(&huart3, s_rx_buf, UART_RX_BUF_SIZE);
 
-    /* 启动选中的测试用例（由条件编译的测试文件提供 app_entry_task） */
-    rtos_task_create(app_entry_task, "app",
-                     app_entry_stack,
-                     sizeof(app_entry_stack) / sizeof(uint32_t),
-                     NULL, 20, NULL);
 
     rtos_scheduler_start();
 

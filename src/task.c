@@ -486,6 +486,16 @@ void rtos_scheduler_start(void)
     extern void rtos_lincli_init(void);
     rtos_lincli_init();
 
+#ifdef ENABLE_TEST_CASES
+    /* 启动选中的测试用例（由条件编译的测试文件提供 app_entry_task） */
+    extern void app_entry_task(void *param);
+    static uint32_t s_app_entry_stack[256];
+    rtos_task_create(app_entry_task, "app",
+                     s_app_entry_stack,
+                     sizeof(s_app_entry_stack) / sizeof(uint32_t),
+                     NULL, 20, NULL);
+#endif
+
     /* 初始化节拍 */
     rtos_port_init_systick(RTOS_TICK_RATE_HZ);
 

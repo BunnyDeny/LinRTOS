@@ -9,7 +9,7 @@
 #include "linRTOS.h"
 #include "cli_io.h"
 
-#ifdef TEST_ABORT_DELAY
+#if defined(ENABLE_TEST_CASES) && defined(TEST_ABORT_DELAY)
 
 
 /* ============================================================
