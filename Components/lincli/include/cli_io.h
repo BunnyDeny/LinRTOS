@@ -43,7 +43,7 @@ typedef volatile int _int;
 #endif
 
 #define CLI_IO_SIZE 128
-#define CLI_PRINTK_BUF_SIZE 128
+#define CLI_PRINTK_BUF_SIZE 256
 #define COLOR_TERMINAL_EN 1
 #define DEBUG
 
@@ -106,17 +106,17 @@ int cli_printk(const char *fmt, ...);
 int all_printk(const char *fmt, ...);
 int sys_printk(const char *fmt, ...);
 
-#define pr_emerg(fmt, ...) cli_printk(KERN_EMERG fmt, ##__VA_ARGS__)
-#define pr_alert(fmt, ...) cli_printk(KERN_ALERT fmt, ##__VA_ARGS__)
-#define pr_crit(fmt, ...) cli_printk(KERN_CRIT fmt, ##__VA_ARGS__)
-#define pr_err(fmt, ...) cli_printk(KERN_ERR fmt, ##__VA_ARGS__)
-#define pr_warn(fmt, ...) cli_printk(KERN_WARNING fmt, ##__VA_ARGS__)
-#define pr_notice(fmt, ...) cli_printk(KERN_NOTICE fmt, ##__VA_ARGS__)
-#define pr_info(fmt, ...) cli_printk(KERN_INFO fmt, ##__VA_ARGS__)
-#define pr_debug(fmt, ...) cli_printk(KERN_DEBUG fmt, ##__VA_ARGS__)
+#define pr_emerg(fmt, ...) sys_printk(KERN_EMERG fmt, ##__VA_ARGS__)
+#define pr_alert(fmt, ...) sys_printk(KERN_ALERT fmt, ##__VA_ARGS__)
+#define pr_crit(fmt, ...) sys_printk(KERN_CRIT fmt, ##__VA_ARGS__)
+#define pr_err(fmt, ...) sys_printk(KERN_ERR fmt, ##__VA_ARGS__)
+#define pr_warn(fmt, ...) sys_printk(KERN_WARNING fmt, ##__VA_ARGS__)
+#define pr_notice(fmt, ...) sys_printk(KERN_NOTICE fmt, ##__VA_ARGS__)
+#define pr_info(fmt, ...) sys_printk(KERN_INFO fmt, ##__VA_ARGS__)
+#define pr_debug(fmt, ...) sys_printk(KERN_DEBUG fmt, ##__VA_ARGS__)
 
 #ifdef DEBUG
-#define pr_devel(fmt, ...) cli_printk(KERN_DEBUG fmt, ##__VA_ARGS__)
+#define pr_devel(fmt, ...) sys_printk(KERN_DEBUG fmt, ##__VA_ARGS__)
 #endif
 
 struct cli_io {

@@ -146,15 +146,16 @@ static const char *prefix_table[] = {
 	"",
 };
 
+static char s_printk_buf[CLI_PRINTK_BUF_SIZE];
+
 int all_printk(const char *fmt, ...)
 {
 	int status;
-	char buf[CLI_PRINTK_BUF_SIZE];
 	va_list args;
 	va_start(args, fmt);
-	int len = cli_vsnprintf(buf, sizeof(buf), fmt, args);
+	int len = cli_vsnprintf(s_printk_buf, sizeof(s_printk_buf), fmt, args);
 	va_end(args);
-	status = cli_out_push((_u8 *)buf, len);
+	status = cli_out_push((_u8 *)s_printk_buf, len);
 	if (status < 0)
 		return status;
 	if (cli_out_sync())
@@ -164,18 +165,28 @@ int all_printk(const char *fmt, ...)
 
 /* ============================================================
  *  sys_printk —— 使用标准库 vsnprintf 的通用日志打印
- *  （缓冲区 128 字节，供测试用例 / CmBacktrace 等系统组件使用）
+ *  （与 all_printk 共用全局缓冲区，供测试用例 / CmBacktrace 使用）
  * ============================================================ */
 
 int sys_printk(const char *fmt, ...)
 {
-	char buf[128];
 	va_list args;
 	va_start(args, fmt);
-	int len = vsnprintf(buf, sizeof(buf), fmt, args);
+	int len = vsnprintf(s_printk_buf, sizeof(s_printk_buf), fmt, args);
 	va_end(args);
-	if (len > 0)
-		cli_printk("%s", buf);
+
+	if (len <= 0)
+		return len;
+
+	if ((size_t)len >= sizeof(s_printk_buf)) {
+		const char *trunc = "...[trunc]\n";
+		size_t tlen = strlen(trunc);
+		size_t pos = sizeof(s_printk_buf) > tlen ? sizeof(s_printk_buf) - tlen - 1 : 0;
+		memcpy(&s_printk_buf[pos], trunc, tlen + 1);
+		len = sizeof(s_printk_buf) - 1;
+	}
+
+	cli_printk("%s", s_printk_buf);
 	return len;
 }
 
