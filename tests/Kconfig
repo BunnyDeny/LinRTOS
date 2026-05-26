@@ -1,6 +1,6 @@
 menuconfig ENABLE_TEST_CASES
 	bool "Enable example test cases"
-	default y
+	default n
 	help
 	  When enabled, you can select exactly one test case to build.
 	  When disabled, no test case code is compiled.
