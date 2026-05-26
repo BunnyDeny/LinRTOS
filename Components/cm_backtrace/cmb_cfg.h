@@ -10,15 +10,15 @@
 
 /* Include LinRTOS config to get ARCH_CPU_CORTEX_Mx macros */
 #include "config.h"
+#include "cli_io.h"
 
 #ifdef COMPONENT_CM_BACKTRACE
 
-/* Print line: map to LinRTOS debug_printf */
-#define cmb_println(...) \
+/* Print line: map to LinRTOS cli_printk */
+#define cmb_println(fmt, ...) \
     do { \
-        extern void debug_printf(const char *fmt, ...); \
-        debug_printf(__VA_ARGS__); \
-        debug_printf("\r\n"); \
+        cli_printk(fmt, ##__VA_ARGS__); \
+        cli_printk("\r\n"); \
     } while(0)
 
 /* Enable OS platform (LinRTOS is an RTOS) */

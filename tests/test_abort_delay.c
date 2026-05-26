@@ -7,10 +7,10 @@
  */
 
 #include "linRTOS.h"
+#include "cli_io.h"
 
 #ifdef TEST_ABORT_DELAY
 
-extern void debug_printf(const char *fmt, ...);
 
 /* ============================================================
  * 静态资源
@@ -29,9 +29,9 @@ static void task_low(void *param)
 {
     (void)param;
     for (;;) {
-    debug_printf("[LOW ] delaying 1000 ticks\r\n");
+    pr_debug("[LOW ] delaying 1000 ticks\r\n");
         rtos_task_delay(1000);
-        debug_printf("[LOW ] woken at tick=%lu\r\n",
+        pr_debug("[LOW ] woken at tick=%lu\r\n",
                          (unsigned long)rtos_get_tick_count());
     }
 }
@@ -44,21 +44,21 @@ static void task_ctrl(void *param)
 {
     (void)param;
 
-    debug_printf("[CTRL] scheduler is_running=%d\r\n",
+    pr_debug("[CTRL] scheduler is_running=%d\r\n",
                      rtos_scheduler_is_running());
 
     for (int i = 0; i < 3; i++) {
         rtos_task_delay(600);
-        debug_printf("[CTRL] abort_delay low task (attempt %d)\r\n", i + 1);
+        pr_debug("[CTRL] abort_delay low task (attempt %d)\r\n", i + 1);
         rtos_err_t err = rtos_task_abort_delay(h_low);
         if (err == RTOS_OK) {
-        debug_printf("[CTRL] abort_delay OK\r\n");
+        pr_debug("[CTRL] abort_delay OK\r\n");
         } else {
-        debug_printf("[CTRL] abort_delay failed err=%d\r\n", (int)err);
+        pr_debug("[CTRL] abort_delay failed err=%d\r\n", (int)err);
         }
     }
 
-    debug_printf("[CTRL] test done, entering idle\r\n");
+    pr_debug("[CTRL] test done, entering idle\r\n");
     for (;;) {
         rtos_task_delay(1000);
     }
@@ -72,7 +72,7 @@ void app_entry_task(void *param)
 {
     (void)param;
 
-    debug_printf("=== Test: Abort Delay ===\r\n");
+    pr_debug("=== Test: Abort Delay ===\r\n");
 
     rtos_task_create(task_low, "low", task_low_stack, 128, NULL, 1, &h_low);
     rtos_task_create(task_ctrl, "ctrl", task_ctrl_stack, 128, NULL, 3, NULL);

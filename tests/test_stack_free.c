@@ -6,10 +6,10 @@
  */
 
 #include "linRTOS.h"
+#include "cli_io.h"
 
 #ifdef TEST_STACK_FREE
 
-extern void debug_printf(const char *fmt, ...);
 
 /* ============================================================
  * 静态资源
@@ -27,12 +27,12 @@ static void task_a(void *param)
     (void)param;
     for (int i = 0; i < 3; i++) {
         uint32_t free = rtos_task_get_stack_free(NULL);
-        debug_printf("[A   ] tick=%lu stack_free=%lu\r\n",
+        pr_debug("[A   ] tick=%lu stack_free=%lu\r\n",
                          (unsigned long)rtos_get_tick_count(),
                          (unsigned long)free);
         rtos_task_delay(200);
     }
-    debug_printf("[A   ] stack_free test done\r\n");
+    pr_debug("[A   ] stack_free test done\r\n");
     rtos_task_delete(NULL);
 }
 
@@ -45,12 +45,12 @@ static void task_b(void *param)
     (void)param;
     for (int i = 0; i < 3; i++) {
         uint32_t free = rtos_task_get_stack_free(NULL);
-        debug_printf("[B   ] tick=%lu stack_free=%lu\r\n",
+        pr_debug("[B   ] tick=%lu stack_free=%lu\r\n",
                          (unsigned long)rtos_get_tick_count(),
                          (unsigned long)free);
         rtos_task_delay(200);
     }
-    debug_printf("[B   ] stack_free test done\r\n");
+    pr_debug("[B   ] stack_free test done\r\n");
     rtos_task_delete(NULL);
 }
 
@@ -62,7 +62,7 @@ void app_entry_task(void *param)
 {
     (void)param;
 
-    debug_printf("=== Test: Stack Free ===\r\n");
+    pr_debug("=== Test: Stack Free ===\r\n");
 
     rtos_task_create(task_a, "A", task_a_stack, 128, NULL, 1, NULL);
     rtos_task_create(task_b, "B", task_b_stack, 128, NULL, 2, NULL);

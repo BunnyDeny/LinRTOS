@@ -6,10 +6,10 @@
  */
 
 #include "linRTOS.h"
+#include "cli_io.h"
 
 #ifdef TEST_YIELD
 
-extern void debug_printf(const char *fmt, ...);
 
 /* ============================================================
  * 静态资源
@@ -26,11 +26,11 @@ static void task_a(void *param)
 {
     (void)param;
     for (int i = 0; i < 5; i++) {
-    debug_printf("[A   ] tick=%lu yield->B\r\n",
+    pr_debug("[A   ] tick=%lu yield->B\r\n",
                      (unsigned long)rtos_get_tick_count());
         rtos_task_yield();
     }
-    debug_printf("[A   ] yield test done\r\n");
+    pr_debug("[A   ] yield test done\r\n");
     rtos_task_delete(NULL);
 }
 
@@ -42,11 +42,11 @@ static void task_b(void *param)
 {
     (void)param;
     for (int i = 0; i < 5; i++) {
-    debug_printf("[B   ] tick=%lu yield->A\r\n",
+    pr_debug("[B   ] tick=%lu yield->A\r\n",
                      (unsigned long)rtos_get_tick_count());
         rtos_task_yield();
     }
-    debug_printf("[B   ] yield test done\r\n");
+    pr_debug("[B   ] yield test done\r\n");
     rtos_task_delete(NULL);
 }
 
@@ -58,7 +58,7 @@ void app_entry_task(void *param)
 {
     (void)param;
 
-    debug_printf("=== Test: Task Yield ===\r\n");
+    pr_debug("=== Test: Task Yield ===\r\n");
 
     rtos_task_create(task_a, "A", task_a_stack, 128, NULL, 2, NULL);
     rtos_task_create(task_b, "B", task_b_stack, 128, NULL, 2, NULL);

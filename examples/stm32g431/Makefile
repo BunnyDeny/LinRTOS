@@ -42,8 +42,6 @@ Core/Src/dma.c \
 Core/Src/usart.c \
 Core/Src/stm32g4xx_it.c \
 Core/Src/stm32g4xx_hal_msp.c \
-Core/Src/linrtos_sys.c \
-Core/Src/lincli_port.c \
 ../../src/sched.c \
 ../../src/task.c \
 ../../src/tick.c \

@@ -327,13 +327,17 @@ static int printk_format_and_send(const char *pre_str, int raw_len)
 
 int cli_printk(const char *fmt, ...)
 {
+	int ret = 0;
 	va_list args;
+
+	cli_enter_critical();
+
 	va_start(args, fmt);
 	int len = cli_vsnprintf(buffer, sizeof(buffer), fmt, args);
 	va_end(args);
 	char pre[2] = { buffer[0], '\0' };
 	if (printk_should_drop(pre))
-		return 0;
+		goto out;
 
 	int in_interactive = scheduler_is_in_get_char();
 	if (in_interactive)
@@ -341,8 +345,10 @@ int cli_printk(const char *fmt, ...)
 
 	const char *_pre = prefix_gen(pre);
 	int status = printk_format_and_send(_pre, len);
-	if (status < 0)
-		return status;
+	if (status < 0) {
+		ret = status;
+		goto out;
+	}
 
 	if (in_interactive) {
 		if (candidate_ctx.active)
@@ -350,7 +356,11 @@ int cli_printk(const char *fmt, ...)
 		else
 			cmd_line_redraw();
 	}
-	return len;
+	ret = len;
+
+out:
+	cli_exit_critical();
+	return ret;
 }
 
 /* ============================================================

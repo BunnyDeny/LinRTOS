@@ -12,6 +12,7 @@
 #include "usart.h"
 #include "linRTOS.h"
 #include "cli_io.h"
+#include "cli_critical.h"
 
 /* USER CODE BEGIN PV */
 uint8_t s_rx_buf[UART_RX_BUF_SIZE];
@@ -23,7 +24,6 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 
 /* USER CODE BEGIN 0 */
-extern void debug_printf(const char *fmt, ...);
 extern void app_entry_task(void *param);
 
 static uint32_t app_entry_stack[256];
@@ -38,7 +38,7 @@ int main(void)
     MX_DMA_Init();
     MX_USART3_UART_Init();
 
-    debug_printf("=== LinRTOS Test Boot ===\r\n");
+    pr_debug("=== LinRTOS Test Boot ===\r\n");
 
     HAL_UARTEx_ReceiveToIdle_DMA(&huart3, s_rx_buf, UART_RX_BUF_SIZE);
 
@@ -101,6 +101,36 @@ static void MX_DMA_Init(void)
 static void MX_GPIO_Init(void)
 {
     __HAL_RCC_GPIOB_CLK_ENABLE();
+}
+
+/* ============================================================
+ * 🛡️ 临界区 —— 映射到 LinRTOS PRIMASK 临界区
+ * ============================================================ */
+
+static uint32_t s_cli_critical_state;
+static int s_cli_critical_nest = 0;
+
+void cli_enter_critical(void)
+{
+    if (s_cli_critical_nest++ == 0) {
+        s_cli_critical_state = rtos_port_enter_critical();
+    }
+}
+
+void cli_exit_critical(void)
+{
+    if (--s_cli_critical_nest == 0) {
+        rtos_port_exit_critical(s_cli_critical_state);
+    }
+}
+
+/* ============================================================
+ * 🖨️ 字符输出 —— 直接调用 HAL UART 发送一个字符
+ * ============================================================ */
+
+void cli_putc(char ch)
+{
+    HAL_UART_Transmit(&huart3, (uint8_t *)&ch, 1, 100);
 }
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
