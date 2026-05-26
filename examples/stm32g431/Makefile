@@ -85,7 +85,7 @@ startup_stm32g431xx.s
 # ASMM sources
 ASMM_SOURCES =  \
 ../../src/port/cortex_m/port_asm.S \
-../../src/cm_backtrace/fault_handler/gcc/cmb_fault.S
+../../src/cm_backtrace/fault_handler/cmb_fault.S
 
 
 
