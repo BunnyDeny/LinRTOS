@@ -47,7 +47,7 @@ Core/Src/linrtos_sys.c \
 ../../src/task.c \
 ../../src/tick.c \
 ../../src/port/cortex_m/port.c \
-../../src/cm_backtrace/cm_backtrace.c \
+../../Components/cm_backtrace/cm_backtrace.c \
 ../../tests/test_fpu.c \
 ../../tests/test_selfdelete.c \
 ../../tests/test_basic_tasks.c \
@@ -85,7 +85,7 @@ startup_stm32g431xx.s
 # ASMM sources
 ASMM_SOURCES =  \
 ../../src/port/cortex_m/port_asm.S \
-../../src/cm_backtrace/fault_handler/cmb_fault.S
+../../Components/cm_backtrace/fault_handler/cmb_fault.S
 
 
 
@@ -145,7 +145,7 @@ C_INCLUDES =  \
 -IDrivers/CMSIS/Device/ST/STM32G4xx/Include \
 -IDrivers/CMSIS/Include \
 -I../../include \
--I../../src/cm_backtrace
+-I../../Components/cm_backtrace
 
 
 # compile gcc flags
