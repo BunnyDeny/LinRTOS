@@ -4,7 +4,7 @@ mainmenu "LinRTOS Configuration"
 source "arch/Kconfig"
 
 # Components (3rd-party libraries / optional features)
-source "components/Kconfig"
+source "Components/Kconfig"
 
 # Introduce src subdirectory Kconfig
 source "src/Kconfig"
