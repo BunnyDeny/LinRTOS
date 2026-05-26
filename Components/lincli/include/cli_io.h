@@ -42,8 +42,8 @@ typedef volatile int _int;
 typedef volatile int _int;
 #endif
 
-#define CLI_IO_SIZE 128
-#define CLI_PRINTK_BUF_SIZE 256
+#define CLI_IO_SIZE 256
+#define CLI_PRINTK_BUF_SIZE CLI_IO_SIZE
 #define COLOR_TERMINAL_EN 1
 #define DEBUG
 
