@@ -452,6 +452,11 @@ void rtos_sched_unlock(void)
  * 🎬 调度器启动（不会返回）
  * ============================================================ */
 
+/* LinCLI 内置任务初始化钩子（weak，由 Components/lincli 覆盖） */
+__attribute__((weak)) void rtos_lincli_init(void)
+{
+}
+
 static void rtos_create_idle_task(void)
 {
     memset(&s_idle_tcb, 0, sizeof(s_idle_tcb));
@@ -481,6 +486,9 @@ void rtos_scheduler_start(void)
 
     /* 创建空闲任务 */
     rtos_create_idle_task();
+
+    /* 若链接了 LinCLI，自动创建 CLI 任务 */
+    rtos_lincli_init();
 
     /* 初始化节拍 */
     rtos_port_init_systick(RTOS_TICK_RATE_HZ);

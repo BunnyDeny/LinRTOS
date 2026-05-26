@@ -43,11 +43,37 @@ Core/Src/usart.c \
 Core/Src/stm32g4xx_it.c \
 Core/Src/stm32g4xx_hal_msp.c \
 Core/Src/linrtos_sys.c \
+Core/Src/lincli_port.c \
 ../../src/sched.c \
 ../../src/task.c \
 ../../src/tick.c \
 ../../src/port/cortex_m/port.c \
 ../../Components/cm_backtrace/cm_backtrace.c \
+../../Components/lincli/src/cli/cli_candidate.c \
+../../Components/lincli/src/cli/cli_cmd_line.c \
+../../Components/lincli/src/cli/cli_completion.c \
+../../Components/lincli/src/cli/cli_edit.c \
+../../Components/lincli/src/cli/cli_env.c \
+../../Components/lincli/src/cli/cli_history.c \
+../../Components/lincli/src/cli/cli_io.c \
+../../Components/lincli/src/cli/cli_logo.c \
+../../Components/lincli/src/cli/cli_parse.c \
+../../Components/lincli/src/cli/cli_user.c \
+../../Components/lincli/src/cli/cli_var.c \
+../../Components/lincli/src/cli/cmd_dispose.c \
+../../Components/lincli/src/init/critical_default.c \
+../../Components/lincli/src/init/init_d.c \
+../../Components/lincli/src/init/scheduler.c \
+../../Components/lincli/src/init/section_markers.c \
+../../Components/lincli/src/init/lincli_rtos.c \
+../../Components/lincli/src/lib/cli_atoi.c \
+../../Components/lincli/src/lib/cli_errno.c \
+../../Components/lincli/src/lib/cli_float.c \
+../../Components/lincli/src/lib/cli_mpool.c \
+../../Components/lincli/src/lib/cli_string.c \
+../../Components/lincli/src/lib/cli_vsnprintf.c \
+../../Components/lincli/src/lib/kfifo.c \
+../../Components/lincli/src/lib/stateM.c \
 ../../tests/test_fpu.c \
 ../../tests/test_selfdelete.c \
 ../../tests/test_basic_tasks.c \
@@ -145,7 +171,10 @@ C_INCLUDES =  \
 -IDrivers/CMSIS/Device/ST/STM32G4xx/Include \
 -IDrivers/CMSIS/Include \
 -I../../include \
--I../../Components/cm_backtrace
+-I../../Components/cm_backtrace \
+-I../../Components/lincli/include \
+-I../../Components/lincli/src/third_party/list \
+-I../../Components/lincli/src/third_party/workqueue
 
 
 # compile gcc flags

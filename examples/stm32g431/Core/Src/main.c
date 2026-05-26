@@ -11,8 +11,10 @@
 #include "main.h"
 #include "usart.h"
 #include "linRTOS.h"
+#include "cli_io.h"
 
 /* USER CODE BEGIN PV */
+uint8_t s_rx_buf[UART_RX_BUF_SIZE];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -37,6 +39,8 @@ int main(void)
     MX_USART3_UART_Init();
 
     debug_printf("=== LinRTOS Test Boot ===\r\n");
+
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart3, s_rx_buf, UART_RX_BUF_SIZE);
 
     /* 启动选中的测试用例（由条件编译的测试文件提供 app_entry_task） */
     rtos_task_create(app_entry_task, "app",
@@ -97,6 +101,13 @@ static void MX_DMA_Init(void)
 static void MX_GPIO_Init(void)
 {
     __HAL_RCC_GPIOB_CLK_ENABLE();
+}
+
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+{
+    if (huart->Instance == USART3) {
+        cli_in_push((_u8 *)s_rx_buf, (int)Size);
+    }
 }
 
 void Error_Handler(void)

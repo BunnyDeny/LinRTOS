@@ -34,6 +34,12 @@ extern "C" {
 
 /* USER CODE END Includes */
 
+/* Exported constants --------------------------------------------------------*/
+/* USER CODE BEGIN EC */
+#define UART_RX_BUF_SIZE 128
+extern uint8_t s_rx_buf[UART_RX_BUF_SIZE];
+/* USER CODE END EC */
+
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 

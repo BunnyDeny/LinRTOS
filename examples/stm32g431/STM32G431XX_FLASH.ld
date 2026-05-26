@@ -104,6 +104,88 @@ SECTIONS
     . = ALIGN(4);
   } >FLASH
 
+  /* LinCLI custom sections */
+  .cli_candidates :
+  {
+    . = ALIGN(4);
+    KEEP(*(.cli_candidates.0.start))
+    KEEP(*(.cli_candidates.1))
+    KEEP(*(.cli_candidates.1.end))
+    . = ALIGN(4);
+  } >FLASH
+
+  .cli_commands :
+  {
+    . = ALIGN(4);
+    KEEP(*(.cli_commands.0.start))
+    KEEP(*(.cli_commands.1))
+    KEEP(*(.cli_commands.1.end))
+    . = ALIGN(4);
+  } >FLASH
+
+  .cli_cmd_line :
+  {
+    . = ALIGN(4);
+    KEEP(*(.cli_cmd_line.0.start))
+    KEEP(*(.cli_cmd_line.1))
+    KEEP(*(.cli_cmd_line.1.end))
+    . = ALIGN(4);
+  } >FLASH
+
+  .scheduler :
+  {
+    . = ALIGN(4);
+    KEEP(*(.scheduler.0.start))
+    KEEP(*(.scheduler.1))
+    KEEP(*(.scheduler.1.end))
+    . = ALIGN(4);
+  } >FLASH
+
+  .my_init_d :
+  {
+    . = ALIGN(4);
+    KEEP(*(.my_init_d.0.start))
+    KEEP(*(.my_init_d.1))
+    KEEP(*(.my_init_d.1.end))
+    . = ALIGN(4);
+  } >FLASH
+
+  .cli_vars :
+  {
+    . = ALIGN(4);
+    KEEP(*(.cli_vars.0.start))
+    KEEP(*(.cli_vars.1))
+    KEEP(*(.cli_vars.1.end))
+    . = ALIGN(4);
+  } >FLASH
+
+  .cli_var_types :
+  {
+    . = ALIGN(4);
+    KEEP(*(.cli_var_types.0.start))
+    KEEP(*(.cli_var_types.1))
+    KEEP(*(.cli_var_types.1.end))
+    . = ALIGN(4);
+  } >FLASH
+
+  .cli_envs :
+  {
+    . = ALIGN(4);
+    KEEP(*(.cli_envs.0.start))
+    KEEP(*(.cli_envs.1))
+    KEEP(*(.cli_envs.1.end))
+    . = ALIGN(4);
+  } >FLASH
+
+  .cli_users :
+  {
+    . = ALIGN(4);
+    KEEP(*(.cli_users.0.start))
+    KEEP(*(.cli_users.1))
+    KEEP(*(.cli_users.1.end))
+    . = ALIGN(4);
+  } >FLASH
+
   .ARM.extab (READONLY) : /* The "READONLY" keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {
     . = ALIGN(4);
