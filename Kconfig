@@ -8,3 +8,6 @@ source "components/Kconfig"
 
 # Introduce src subdirectory Kconfig
 source "src/Kconfig"
+
+# Example test cases
+source "tests/Kconfig"
