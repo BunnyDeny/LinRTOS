@@ -11,6 +11,28 @@
 #include "port.h"
 
 /* ============================================================
+ * 🔧 编译器无关的前导零计数（CLZ）
+ * ============================================================ */
+
+#if defined(__CC_ARM)
+    /* ARM Compiler 5 (armcc) intrinsic */
+    static __inline int rtos_clz(uint32_t x) {
+        return (int)__clz(x);
+    }
+#elif defined(__ICCARM__)
+    /* IAR intrinsic */
+    #include <intrinsics.h>
+    static inline int rtos_clz(uint32_t x) {
+        return (int)__CLZ(x);
+    }
+#else
+    /* GCC / Clang / ARM Compiler 6 */
+    static inline int rtos_clz(uint32_t x) {
+        return __builtin_clz(x);
+    }
+#endif
+
+/* ============================================================
  * 🏭 全局状态
  * ============================================================ */
 
@@ -76,15 +98,15 @@ struct rtos_tcb *rtos_pick_highest_ready(void)
     }
 
 #if RTOS_MAX_PRIORITIES <= 32
-    int prio = 31 - __builtin_clz((unsigned int)g_kernel.ready_map);
+    int prio = 31 - rtos_clz((uint32_t)g_kernel.ready_map);
 #else
     int prio;
     uint32_t high = (uint32_t)(g_kernel.ready_map >> 32);
     if (high) {
-        prio = 63 - __builtin_clz(high);
+        prio = 63 - rtos_clz(high);
     } else {
         uint32_t low = (uint32_t)g_kernel.ready_map;
-        prio = 31 - __builtin_clz(low);
+        prio = 31 - rtos_clz(low);
     }
 #endif
 

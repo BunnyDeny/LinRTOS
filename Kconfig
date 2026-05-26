@@ -1,4 +1,7 @@
 mainmenu "LinRTOS Configuration"
 
+# Architecture / CPU / Compiler selection
+source "arch/Kconfig"
+
 # Introduce src subdirectory Kconfig
 source "src/Kconfig"

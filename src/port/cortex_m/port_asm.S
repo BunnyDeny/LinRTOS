@@ -6,8 +6,13 @@
  */
 
     .syntax unified
-    .arch armv7-m
     .thumb
+
+#if defined(ARCH_CPU_CORTEX_M33)
+    .arch armv8-m.main
+#else
+    .arch armv7-m
+#endif
 
     .global PendSV_Handler
     .global SVC_Handler

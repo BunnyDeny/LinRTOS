@@ -38,12 +38,6 @@ config RTOS_ENABLE_IDLE_HOOK
 	help
 	  Call user-provided hook function in idle task.
 
-config RTOS_ENABLE_FPU
-	bool "Enable FPU support (Cortex-M4F/M7)"
-	default y
-	help
-	  Enable FPU context save/restore on task switch.
-
 config RTOS_MAX_TASKS
 	int "Maximum number of tasks"
 	default 16

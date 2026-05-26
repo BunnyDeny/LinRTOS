@@ -1,0 +1,87 @@
+menu "Architecture (ARM Cortex-M)"
+
+choice ARCH_CPU_TYPE
+    prompt "ARM Cortex-M core type"
+    default ARCH_CPU_CORTEX_M4
+    help
+      Select the target ARM Cortex-M core. This determines the
+      instruction set architecture and available hardware features.
+
+config ARCH_CPU_CORTEX_M3
+    bool "Cortex-M3"
+    help
+      ARMv7-M architecture. No FPU.
+
+config ARCH_CPU_CORTEX_M4
+    bool "Cortex-M4"
+    help
+      ARMv7-M architecture with optional single-precision FPU (M4F).
+
+config ARCH_CPU_CORTEX_M7
+    bool "Cortex-M7"
+    help
+      ARMv7-M architecture with optional single/double-precision FPU.
+
+config ARCH_CPU_CORTEX_M33
+    bool "Cortex-M33"
+    help
+      ARMv8-M Mainline architecture with optional TrustZone and FPU.
+endchoice
+
+config ARCH_ENABLE_FPU
+    bool "Enable FPU support"
+    default y
+    depends on ARCH_CPU_CORTEX_M4 || ARCH_CPU_CORTEX_M7 || ARCH_CPU_CORTEX_M33
+    help
+      Enable FPU (floating-point unit) context save/restore on task switch.
+      Only available on cores that have an optional FPU.
+      Ensure your build flags include the correct -mfloat-abi and -mfpu settings.
+
+choice ARCH_COMPILER
+    prompt "Compiler toolchain"
+    default ARCH_COMPILER_GCC
+    help
+      Select the compiler toolchain used to build the project.
+      Note: the port layer assembly/C code currently uses GCC-style
+      inline assembly. Full MDK/IAR porting may require additional
+      adaptations in port.c and port_asm.S.
+
+config ARCH_COMPILER_GCC
+    bool "GCC / Clang (ARM Compiler 6)"
+    help
+      GNU Compiler Collection or LLVM/Clang (e.g. arm-none-eabi-gcc).
+      Also covers ARM Compiler 6 which is Clang-based.
+
+config ARCH_COMPILER_MDK
+    bool "MDK (Keil)"
+    help
+      Keil MDK. Please select the ARM Compiler version below.
+
+config ARCH_COMPILER_IAR
+    bool "IAR Embedded Workbench"
+    help
+      IAR C/C++ Compiler for ARM (iccarm).
+endchoice
+
+choice ARCH_MDK_VERSION
+    prompt "MDK ARM Compiler version"
+    depends on ARCH_COMPILER_MDK
+    default ARCH_MDK_AC6
+    help
+      ARM Compiler 5 uses the legacy armcc toolchain.
+      ARM Compiler 6 is Clang-based and supports GNU-style inline assembly.
+
+config ARCH_MDK_AC5
+    bool "ARM Compiler 5 (armcc)"
+    help
+      Legacy ARM Compiler 5. Requires embedded assembly syntax
+      in port.c (already implemented).
+
+config ARCH_MDK_AC6
+    bool "ARM Compiler 6 (clang-based)"
+    help
+      Modern Clang-based toolchain. Supports GCC-style inline assembly
+      and defines both __ARMCC_VERSION and __clang__.
+endchoice
+
+endmenu

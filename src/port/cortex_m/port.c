@@ -31,7 +31,11 @@ void rtos_port_init(void)
  * ============================================================ */
 
 /* 若用户未定义 SystemCoreClock，提供一个弱默认 */
-extern uint32_t SystemCoreClock __attribute__((weak));
+#if defined(__CC_ARM) || defined(__ICCARM__)
+    extern uint32_t SystemCoreClock __weak;
+#else
+    extern uint32_t SystemCoreClock __attribute__((weak));
+#endif
 
 static uint32_t s_core_clock = 0;
 
@@ -64,6 +68,48 @@ void rtos_port_set_core_clock(uint32_t clock_hz)
  * 🛡️ 临界区（使用 PRIMASK，全架构兼容）
  * ============================================================ */
 
+#if defined(__CC_ARM)
+/* ---- ARM Compiler 5 (armcc) : 嵌入式汇编 ---- */
+__asm uint32_t rtos_port_enter_critical(void)
+{
+    MRS r0, primask
+    CPSID i
+    BX  lr
+}
+
+__asm void rtos_port_exit_critical(uint32_t state)
+{
+    MSR primask, r0
+    BX  lr
+}
+
+#elif defined(__ICCARM__)
+/* ---- IAR : 扩展内联汇编 ---- */
+uint32_t rtos_port_enter_critical(void)
+{
+    uint32_t primask;
+    __asm volatile (
+        "MRS  %0, primask\n"
+        "CPSID i"
+        : "=r" (primask)
+        :
+        : "memory"
+    );
+    return primask;
+}
+
+void rtos_port_exit_critical(uint32_t state)
+{
+    __asm volatile (
+        "MSR  primask, %0"
+        :
+        : "r" (state)
+        : "memory"
+    );
+}
+
+#else
+/* ---- GCC / Clang / ARM Compiler 6 ---- */
 uint32_t rtos_port_enter_critical(void)
 {
     uint32_t primask;
@@ -85,11 +131,37 @@ void rtos_port_exit_critical(uint32_t state)
         : "memory"
     );
 }
+#endif
 
 /* ============================================================
  * 📍 中断状态判断
  * ============================================================ */
 
+#if defined(__CC_ARM)
+/* ---- ARM Compiler 5 : 嵌入式汇编 ---- */
+__asm int rtos_port_is_in_isr(void)
+{
+    MRS  r0, ipsr
+    CMP  r0, #0
+    MOVEQ r0, #0
+    MOVNE r0, #1
+    BX   lr
+}
+
+#elif defined(__ICCARM__)
+/* ---- IAR ---- */
+int rtos_port_is_in_isr(void)
+{
+    uint32_t ipsr;
+    __asm volatile (
+        "MRS  %0, ipsr"
+        : "=r" (ipsr)
+    );
+    return (ipsr != 0);
+}
+
+#else
+/* ---- GCC / Clang / ARM Compiler 6 ---- */
 int rtos_port_is_in_isr(void)
 {
     /* IPSR: 0=线程模式，非0=异常/中断 */
@@ -97,6 +169,7 @@ int rtos_port_is_in_isr(void)
     __asm volatile ("mrs %0, ipsr" : "=r" (ipsr));
     return (ipsr != 0);
 }
+#endif
 
 /* ============================================================
  * 💾 初始化任务栈帧（构造首次运行的硬件上下文）
