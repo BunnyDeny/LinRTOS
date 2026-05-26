@@ -34,5 +34,5 @@ void rtos_lincli_init(void)
     rtos_task_create(lincli_task_entry, "lincli",
                      s_lincli_stack,
                      sizeof(s_lincli_stack) / sizeof(uint32_t),
-                     NULL, 10, NULL);
+                     NULL, 31, NULL);
 }
