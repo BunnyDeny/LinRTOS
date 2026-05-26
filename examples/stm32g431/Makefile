@@ -47,6 +47,7 @@ Core/Src/linrtos_sys.c \
 ../../src/task.c \
 ../../src/tick.c \
 ../../src/port/cortex_m/port.c \
+../../src/cm_backtrace/cm_backtrace.c \
 ../../tests/test_fpu.c \
 ../../tests/test_selfdelete.c \
 ../../tests/test_basic_tasks.c \
@@ -57,6 +58,7 @@ Core/Src/linrtos_sys.c \
 ../../tests/test_yield.c \
 ../../tests/test_stack_free.c \
 ../../tests/test_abort_delay.c \
+../../tests/test_cm_backtrace.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_pwr_ex.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart_ex.c \
@@ -82,7 +84,8 @@ startup_stm32g431xx.s
 
 # ASMM sources
 ASMM_SOURCES =  \
-../../src/port/cortex_m/port_asm.S
+../../src/port/cortex_m/port_asm.S \
+../../src/cm_backtrace/fault_handler/gcc/cmb_fault.S
 
 
 
@@ -141,7 +144,8 @@ C_INCLUDES =  \
 -IDrivers/STM32G4xx_HAL_Driver/Inc/Legacy \
 -IDrivers/CMSIS/Device/ST/STM32G4xx/Include \
 -IDrivers/CMSIS/Include \
--I../../include
+-I../../include \
+-I../../src/cm_backtrace
 
 
 # compile gcc flags

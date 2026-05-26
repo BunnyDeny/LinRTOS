@@ -109,6 +109,12 @@ config TEST_ABORT_DELAY
 	help
 	  Verify rtos_task_abort_delay and rtos_scheduler_is_running.
 
+config TEST_CM_BACKTRACE
+	bool "CmBacktrace integration"
+	help
+	  Verify CmBacktrace initialization, call stack backtrace,
+	  and HardFault diagnosis under LinRTOS.
+
 endchoice
 
 endmenu
