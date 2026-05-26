@@ -26,6 +26,8 @@
  * Created on: 2016-12-16
  */
 
+#include "config.h"
+
 #ifdef COMPONENT_CM_BACKTRACE
 
 .syntax unified
