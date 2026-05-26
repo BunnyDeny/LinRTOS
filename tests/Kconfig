@@ -1,4 +1,11 @@
-menu "Example Test Cases"
+menuconfig ENABLE_TEST_CASES
+	bool "Enable example test cases"
+	default y
+	help
+	  When enabled, you can select exactly one test case to build.
+	  When disabled, no test case code is compiled.
+
+if ENABLE_TEST_CASES
 
 choice TEST_CASE
 	prompt "Select test case to build"
@@ -66,4 +73,4 @@ config TEST_CM_BACKTRACE
 
 endchoice
 
-endmenu
+endif
