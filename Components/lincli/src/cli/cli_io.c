@@ -162,6 +162,23 @@ int all_printk(const char *fmt, ...)
 	return 0;
 }
 
+/* ============================================================
+ *  sys_printk —— 使用标准库 vsnprintf 的通用日志打印
+ *  （缓冲区 128 字节，供测试用例 / CmBacktrace 等系统组件使用）
+ * ============================================================ */
+
+int sys_printk(const char *fmt, ...)
+{
+	char buf[128];
+	va_list args;
+	va_start(args, fmt);
+	int len = vsnprintf(buf, sizeof(buf), fmt, args);
+	va_end(args);
+	if (len > 0)
+		cli_printk("%s", buf);
+	return len;
+}
+
 int cli_in_clear(void)
 {
 	if (_cli_io.in_ref == 0) {

@@ -35,7 +35,7 @@ static void task_fp_a(void *param)
         float s = sinf(sum);
         float c = cosf(sum);
         float chk = sqrtf(fabsf(s) + fabsf(c));
-        pr_debug("[FPA ] tick=%lu sum=%.6f sin=%.6f cos=%.6f chk=%.6f\r\n",
+        sys_printk("[FPA ] tick=%lu sum=%.6f sin=%.6f cos=%.6f chk=%.6f\r\n",
                      (unsigned long)rtos_get_tick_count(),
                      (double)sum, (double)s, (double)c, (double)chk);
         rtos_task_delay(300);
@@ -57,7 +57,7 @@ static void task_fp_b(void *param)
         }
         float t = tanf(val);
         float l = logf(val);
-        pr_debug("[FPB ] tick=%lu val=%.6f tan=%.6f log=%.6f\r\n",
+        sys_printk("[FPB ] tick=%lu val=%.6f tan=%.6f log=%.6f\r\n",
                      (unsigned long)rtos_get_tick_count(),
                      (double)val, (double)t, (double)l);
         rtos_task_delay(700);
@@ -74,7 +74,7 @@ static void task_intr(void *param)
     volatile uint32_t count = 0;
     for (;;) {
         count++;
-        pr_debug("[INTR] tick=%lu count=%lu\r\n",
+        sys_printk("[INTR] tick=%lu count=%lu\r\n",
                      (unsigned long)rtos_get_tick_count(),
                      (unsigned long)count);
         rtos_task_delay(200);
@@ -89,7 +89,7 @@ void app_entry_task(void *param)
 {
     (void)param;
 
-    pr_debug("=== Test: FPU Context Switch ===\r\n");
+    sys_printk("=== Test: FPU Context Switch ===\r\n");
 
     rtos_task_create(task_fp_a, "fp_a", task_fp_a_stack, 256, NULL, 2, NULL);
     rtos_task_create(task_fp_b, "fp_b", task_fp_b_stack, 256, NULL, 1, NULL);

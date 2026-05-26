@@ -30,10 +30,10 @@ static uint32_t test_task_stack[512];
 
 static void __attribute__((noinline)) trigger_memory_fault(void)
 {
-    /* 调用一次 pr_debug，强迫编译器将 LR 压入栈，
+    /* 调用一次 sys_printk，强迫编译器将 LR 压入栈，
      * 使 CmBacktrace 栈扫描能捕获到本函数的返回地址。
      */
-    pr_debug("[CMB] Triggering illegal memory access now...\r\n");
+    sys_printk("[CMB] Triggering illegal memory access now...\r\n");
 
     /* 向一个未映射地址写入，触发 BusFault -> HardFault。
      * 使用 volatile 指针防止编译器优化掉写操作。
@@ -45,7 +45,7 @@ static void __attribute__((noinline)) trigger_memory_fault(void)
 /* 嵌套调用以增加调用栈深度 */
 static void __attribute__((noinline)) level3(void)
 {
-    pr_debug("[CMB] About to trigger HardFault (illegal memory access)...\r\n");
+    sys_printk("[CMB] About to trigger HardFault (illegal memory access)...\r\n");
     trigger_memory_fault();
 }
 
@@ -80,9 +80,9 @@ static void cm_backtrace_test_task(void *param)
         uint32_t sp = cmb_get_sp();
 
         depth = cm_backtrace_call_stack(call_stack, sizeof(call_stack) / sizeof(call_stack[0]), sp);
-        pr_debug("[CMB] Current call stack depth = %u\r\n", (unsigned)depth);
+        sys_printk("[CMB] Current call stack depth = %u\r\n", (unsigned)depth);
         for (size_t i = 0; i < depth; i++) {
-            pr_debug("[CMB]   [%u] 0x%08X\r\n", (unsigned)i, (unsigned)call_stack[i]);
+            sys_printk("[CMB]   [%u] 0x%08X\r\n", (unsigned)i, (unsigned)call_stack[i]);
         }
     }
 
@@ -103,7 +103,7 @@ void app_entry_task(void *param)
 {
     (void)param;
 
-    pr_debug("=== Test: CmBacktrace Integration ===\r\n");
+    sys_printk("=== Test: CmBacktrace Integration ===\r\n");
 
     rtos_task_create(cm_backtrace_test_task, "cmb_test",
                      test_task_stack, sizeof(test_task_stack) / sizeof(uint32_t),

@@ -27,12 +27,12 @@ static void task_a(void *param)
     (void)param;
     for (int i = 0; i < 3; i++) {
         uint32_t free = rtos_task_get_stack_free(NULL);
-        pr_debug("[A   ] tick=%lu stack_free=%lu\r\n",
+        sys_printk("[A   ] tick=%lu stack_free=%lu\r\n",
                          (unsigned long)rtos_get_tick_count(),
                          (unsigned long)free);
         rtos_task_delay(200);
     }
-    pr_debug("[A   ] stack_free test done\r\n");
+    sys_printk("[A   ] stack_free test done\r\n");
     rtos_task_delete(NULL);
 }
 
@@ -45,12 +45,12 @@ static void task_b(void *param)
     (void)param;
     for (int i = 0; i < 3; i++) {
         uint32_t free = rtos_task_get_stack_free(NULL);
-        pr_debug("[B   ] tick=%lu stack_free=%lu\r\n",
+        sys_printk("[B   ] tick=%lu stack_free=%lu\r\n",
                          (unsigned long)rtos_get_tick_count(),
                          (unsigned long)free);
         rtos_task_delay(200);
     }
-    pr_debug("[B   ] stack_free test done\r\n");
+    sys_printk("[B   ] stack_free test done\r\n");
     rtos_task_delete(NULL);
 }
 
@@ -62,7 +62,7 @@ void app_entry_task(void *param)
 {
     (void)param;
 
-    pr_debug("=== Test: Stack Free ===\r\n");
+    sys_printk("=== Test: Stack Free ===\r\n");
 
     rtos_task_create(task_a, "A", task_a_stack, 128, NULL, 1, NULL);
     rtos_task_create(task_b, "B", task_b_stack, 128, NULL, 2, NULL);

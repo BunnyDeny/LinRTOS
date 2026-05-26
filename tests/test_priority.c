@@ -31,7 +31,7 @@ static void task_worker(void *param)
     (void)param;
     for (;;) {
         uint32_t prio = rtos_task_get_priority(NULL);
-        pr_debug("[WORK] tick=%lu prio=%lu running\r\n",
+        sys_printk("[WORK] tick=%lu prio=%lu running\r\n",
                          (unsigned long)rtos_get_tick_count(),
                          (unsigned long)prio);
         rtos_task_delay(300);
@@ -55,7 +55,7 @@ static void task_ctrl(void *param)
         {
             rtos_task_set_priority(h_worker, 3);
             
-            pr_debug("[CTRL] cycle=%d raise worker to prio 3\r\n", cycle);
+            sys_printk("[CTRL] cycle=%d raise worker to prio 3\r\n", cycle);
         }
 
         rtos_task_delay(600);
@@ -64,11 +64,11 @@ static void task_ctrl(void *param)
         {
             rtos_task_set_priority(h_worker, 1);
             
-            pr_debug("[CTRL] cycle=%d lower worker to prio 1\r\n", cycle);
+            sys_printk("[CTRL] cycle=%d lower worker to prio 1\r\n", cycle);
         }
 
         if (cycle >= 5) {
-        pr_debug("[CTRL] test done, entering idle\r\n");
+        sys_printk("[CTRL] test done, entering idle\r\n");
             for (;;) {
                 rtos_task_delay(1000);
             }
@@ -84,7 +84,7 @@ void app_entry_task(void *param)
 {
     (void)param;
 
-    pr_debug("=== Test: Priority Change ===\r\n");
+    sys_printk("=== Test: Priority Change ===\r\n");
 
     rtos_task_create(task_worker, "worker", task_worker_stack, 128, NULL, 2, &h_worker);
     rtos_task_create(task_ctrl,   "ctrl",   task_ctrl_stack,   128, NULL, 1, NULL);

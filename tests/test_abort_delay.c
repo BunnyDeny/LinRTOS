@@ -29,9 +29,9 @@ static void task_low(void *param)
 {
     (void)param;
     for (;;) {
-    pr_debug("[LOW ] delaying 1000 ticks\r\n");
+    sys_printk("[LOW ] delaying 1000 ticks\r\n");
         rtos_task_delay(1000);
-        pr_debug("[LOW ] woken at tick=%lu\r\n",
+        sys_printk("[LOW ] woken at tick=%lu\r\n",
                          (unsigned long)rtos_get_tick_count());
     }
 }
@@ -44,21 +44,21 @@ static void task_ctrl(void *param)
 {
     (void)param;
 
-    pr_debug("[CTRL] scheduler is_running=%d\r\n",
+    sys_printk("[CTRL] scheduler is_running=%d\r\n",
                      rtos_scheduler_is_running());
 
     for (int i = 0; i < 3; i++) {
         rtos_task_delay(600);
-        pr_debug("[CTRL] abort_delay low task (attempt %d)\r\n", i + 1);
+        sys_printk("[CTRL] abort_delay low task (attempt %d)\r\n", i + 1);
         rtos_err_t err = rtos_task_abort_delay(h_low);
         if (err == RTOS_OK) {
-        pr_debug("[CTRL] abort_delay OK\r\n");
+        sys_printk("[CTRL] abort_delay OK\r\n");
         } else {
-        pr_debug("[CTRL] abort_delay failed err=%d\r\n", (int)err);
+        sys_printk("[CTRL] abort_delay failed err=%d\r\n", (int)err);
         }
     }
 
-    pr_debug("[CTRL] test done, entering idle\r\n");
+    sys_printk("[CTRL] test done, entering idle\r\n");
     for (;;) {
         rtos_task_delay(1000);
     }
@@ -72,7 +72,7 @@ void app_entry_task(void *param)
 {
     (void)param;
 
-    pr_debug("=== Test: Abort Delay ===\r\n");
+    sys_printk("=== Test: Abort Delay ===\r\n");
 
     rtos_task_create(task_low, "low", task_low_stack, 128, NULL, 1, &h_low);
     rtos_task_create(task_ctrl, "ctrl", task_ctrl_stack, 128, NULL, 3, NULL);

@@ -14,11 +14,11 @@
 
 #ifdef COMPONENT_CM_BACKTRACE
 
-/* Print line: map to LinRTOS cli_printk */
+/* Print line: map to LinRTOS sys_printk */
 #define cmb_println(fmt, ...) \
     do { \
-        cli_printk(fmt, ##__VA_ARGS__); \
-        cli_printk("\r\n"); \
+        sys_printk(fmt, ##__VA_ARGS__); \
+        sys_printk("\r\n"); \
     } while(0)
 
 /* Enable OS platform (LinRTOS is an RTOS) */

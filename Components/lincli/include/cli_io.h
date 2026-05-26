@@ -104,6 +104,7 @@ extern _u8 cli_in_push_lock;
 
 int cli_printk(const char *fmt, ...);
 int all_printk(const char *fmt, ...);
+int sys_printk(const char *fmt, ...);
 
 #define pr_emerg(fmt, ...) cli_printk(KERN_EMERG fmt, ##__VA_ARGS__)
 #define pr_alert(fmt, ...) cli_printk(KERN_ALERT fmt, ##__VA_ARGS__)

@@ -34,7 +34,7 @@ static void task_high(void *param)
     (void)param;
     for (;;) {
         s_high_count++;
-        pr_debug("[HIGH] tick=%lu count=%lu\r\n",
+        sys_printk("[HIGH] tick=%lu count=%lu\r\n",
                      (unsigned long)rtos_get_tick_count(),
                      (unsigned long)s_high_count);
         rtos_task_delay(500);
@@ -49,11 +49,11 @@ static void task_test(void *param)
 {
     (void)param;
     s_test_count++;
-    pr_debug("[TEST] run #%lu, tick=%lu\r\n",
+    sys_printk("[TEST] run #%lu, tick=%lu\r\n",
                      (unsigned long)s_test_count,
                      (unsigned long)rtos_get_tick_count());
     rtos_task_delay(300);
-    pr_debug("[TEST] self-delete\r\n");
+    sys_printk("[TEST] self-delete\r\n");
     rtos_task_delete(NULL);
 }
 
@@ -66,7 +66,7 @@ static void task_low(void *param)
     (void)param;
     for (;;) {
         s_low_count++;
-        pr_debug("[LOW ] tick=%lu count=%lu test_count=%lu\r\n",
+        sys_printk("[LOW ] tick=%lu count=%lu test_count=%lu\r\n",
                          (unsigned long)rtos_get_tick_count(),
                          (unsigned long)s_low_count,
                          (unsigned long)s_test_count);
@@ -74,10 +74,10 @@ static void task_low(void *param)
                                           task_test_stack, 128, NULL, 2, NULL);
         {
             if (err != RTOS_OK) {
-            pr_debug("[LOW ] create test FAILED! err=%d (pool exhausted?)\r\n",
+            sys_printk("[LOW ] create test FAILED! err=%d (pool exhausted?)\r\n",
                              (int)err);
             } else {
-            pr_debug("[LOW ] create test OK\r\n");
+            sys_printk("[LOW ] create test OK\r\n");
             }
         }
         rtos_task_delay(1000);
@@ -92,7 +92,7 @@ void app_entry_task(void *param)
 {
     (void)param;
 
-    pr_debug("=== Test: Self-Delete Recycle ===\r\n");
+    sys_printk("=== Test: Self-Delete Recycle ===\r\n");
 
     rtos_task_create(task_high, "high", task_high_stack, 128, NULL, 3, NULL);
     rtos_task_create(task_low,  "low",  task_low_stack,  128, NULL, 1, NULL);

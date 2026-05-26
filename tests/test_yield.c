@@ -26,11 +26,11 @@ static void task_a(void *param)
 {
     (void)param;
     for (int i = 0; i < 5; i++) {
-    pr_debug("[A   ] tick=%lu yield->B\r\n",
+    sys_printk("[A   ] tick=%lu yield->B\r\n",
                      (unsigned long)rtos_get_tick_count());
         rtos_task_yield();
     }
-    pr_debug("[A   ] yield test done\r\n");
+    sys_printk("[A   ] yield test done\r\n");
     rtos_task_delete(NULL);
 }
 
@@ -42,11 +42,11 @@ static void task_b(void *param)
 {
     (void)param;
     for (int i = 0; i < 5; i++) {
-    pr_debug("[B   ] tick=%lu yield->A\r\n",
+    sys_printk("[B   ] tick=%lu yield->A\r\n",
                      (unsigned long)rtos_get_tick_count());
         rtos_task_yield();
     }
-    pr_debug("[B   ] yield test done\r\n");
+    sys_printk("[B   ] yield test done\r\n");
     rtos_task_delete(NULL);
 }
 
@@ -58,7 +58,7 @@ void app_entry_task(void *param)
 {
     (void)param;
 
-    pr_debug("=== Test: Task Yield ===\r\n");
+    sys_printk("=== Test: Task Yield ===\r\n");
 
     rtos_task_create(task_a, "A", task_a_stack, 128, NULL, 2, NULL);
     rtos_task_create(task_b, "B", task_b_stack, 128, NULL, 2, NULL);

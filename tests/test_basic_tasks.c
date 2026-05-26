@@ -38,7 +38,7 @@ static void task_high(void *param)
     (void)param;
     for (;;) {
         s_high_count++;
-        pr_debug("[HIGH] tick=%lu count=%lu\r\n",
+        sys_printk("[HIGH] tick=%lu count=%lu\r\n",
                          (unsigned long)rtos_get_tick_count(),
                          (unsigned long)s_high_count);
         rtos_task_delay(200);
@@ -54,7 +54,7 @@ static void task_mid(void *param)
     (void)param;
     for (;;) {
         s_mid_count++;
-        pr_debug("[MID ] tick=%lu count=%lu\r\n",
+        sys_printk("[MID ] tick=%lu count=%lu\r\n",
                          (unsigned long)rtos_get_tick_count(),
                          (unsigned long)s_mid_count);
         rtos_task_delay(400);
@@ -70,7 +70,7 @@ static void task_low(void *param)
     (void)param;
     for (;;) {
         s_low_count++;
-        pr_debug("[LOW ] tick=%lu count=%lu\r\n",
+        sys_printk("[LOW ] tick=%lu count=%lu\r\n",
                          (unsigned long)rtos_get_tick_count(),
                          (unsigned long)s_low_count);
         rtos_task_delay(800);
@@ -89,7 +89,7 @@ static void task_periodic(void *param)
         s_periodic_count++;
         uint32_t now = rtos_get_tick_count();
         int32_t jitter = (int32_t)(now - prev_wake);
-        pr_debug("[PER ] tick=%lu count=%lu jitter=%ld\r\n",
+        sys_printk("[PER ] tick=%lu count=%lu jitter=%ld\r\n",
                          (unsigned long)now,
                          (unsigned long)s_periodic_count,
                          (long)jitter);
@@ -105,7 +105,7 @@ void app_entry_task(void *param)
 {
     (void)param;
 
-    pr_debug("=== Test: Basic Tasks ===\r\n");
+    sys_printk("=== Test: Basic Tasks ===\r\n");
 
     rtos_task_create(task_high,     "high",     task_high_stack,     128, NULL, 3, NULL);
     rtos_task_create(task_mid,      "mid",      task_mid_stack,      128, NULL, 2, NULL);
