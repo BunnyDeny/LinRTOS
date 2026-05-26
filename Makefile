@@ -51,5 +51,11 @@ build-g431:
 	fi
 	@$(MAKE) -C examples/stm32g431 all
 
+# flash-g431: build-g431
+# 	@cd examples/stm32g431 && openocd -f interface/cmsis-dap.cfg -f target/stm32g4x.cfg -c "program ./build/stm32g431_gcc_example_project.elf verify reset exit"
+
+
 flash-g431: build-g431
-	@cd examples/stm32g431 && openocd -f interface/cmsis-dap.cfg -f target/stm32g4x.cfg -c "program ./build/stm32g431_gcc_example_project.elf verify reset exit"
+	@cd examples/stm32g431 && openocd -f interface/cmsis-dap.cfg -f target/stm32g4x.cfg \
+		-c "adapter speed 1000" \
+		-c "program ./build/stm32g431_gcc_example_project.elf verify reset exit"
