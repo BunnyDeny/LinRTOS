@@ -37,17 +37,23 @@ def main():
     if os.path.exists(dotconfig):
         kconfig.load_config(dotconfig)
         print(f"Loaded existing config: {dotconfig}")
+        config_mtime_before = os.path.getmtime(dotconfig)
     else:
         print("No existing .config found, using defaults.")
+        config_mtime_before = None
 
     # Launch interactive TUI
-    saved = menuconfig(kconfig)
+    menuconfig(kconfig)
 
-    if saved:
-        # Save .config and sync header
-        kconfig.write_config(dotconfig)
+    # Determine whether the user saved the configuration by checking
+    # if .config was modified during menuconfig execution.
+    if os.path.exists(dotconfig):
+        config_mtime_after = os.path.getmtime(dotconfig)
+    else:
+        config_mtime_after = None
 
-        # Also generate include/linrtos_kconfig.h so menuconfig changes are reflected
+    if config_mtime_after != config_mtime_before:
+        # User saved the configuration. Sync the generated header.
         import config_to_header
         config_to_header.convert(dotconfig, "include/linrtos_kconfig.h")
     else:
