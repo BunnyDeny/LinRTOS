@@ -30,9 +30,12 @@ static uint32_t test_task_stack[512];
 
 static void __attribute__((noinline)) trigger_memory_fault(void)
 {
+    /* 调用一次 debug_printf，强迫编译器将 LR 压入栈，
+     * 使 CmBacktrace 栈扫描能捕获到本函数的返回地址。
+     */
+    debug_printf("[CMB] Triggering illegal memory access now...\r\n");
+
     /* 向一个未映射地址写入，触发 BusFault -> HardFault。
-     * STM32 启动后地址 0x00000000 映射到 Flash（有效区域），写它不会触发异常，
-     * 因此使用 0xFFFFFFFF（确定未映射）作为野指针目标。
      * 使用 volatile 指针防止编译器优化掉写操作。
      */
     volatile uint32_t *bad_ptr = (volatile uint32_t *)0xFFFFFFFF;
