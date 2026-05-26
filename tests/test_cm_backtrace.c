@@ -28,7 +28,7 @@ static uint32_t test_task_stack[512];
  * 制造非法内存访问异常（野指针写）
  * ============================================================ */
 
-static void trigger_memory_fault(void)
+static void __attribute__((noinline)) trigger_memory_fault(void)
 {
     /* 向一个未映射地址写入，触发 BusFault -> HardFault。
      * STM32 启动后地址 0x00000000 映射到 Flash（有效区域），写它不会触发异常，
@@ -40,18 +40,18 @@ static void trigger_memory_fault(void)
 }
 
 /* 嵌套调用以增加调用栈深度 */
-static void level3(void)
+static void __attribute__((noinline)) level3(void)
 {
     debug_printf("[CMB] About to trigger HardFault (illegal memory access)...\r\n");
     trigger_memory_fault();
 }
 
-static void level2(void)
+static void __attribute__((noinline)) level2(void)
 {
     level3();
 }
 
-static void level1(void)
+static void __attribute__((noinline)) level1(void)
 {
     level2();
 }
