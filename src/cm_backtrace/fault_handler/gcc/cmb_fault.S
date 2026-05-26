@@ -26,6 +26,8 @@
  * Created on: 2016-12-16
  */
 
+#ifdef COMPONENT_CM_BACKTRACE
+
 .syntax unified
 .thumb
 .text
@@ -41,3 +43,5 @@ HardFault_Handler:
 
 Fault_Loop:
     BL      Fault_Loop              /* while(1) */
+
+#endif /* COMPONENT_CM_BACKTRACE */

@@ -1,0 +1,19 @@
+menu "Components"
+
+config COMPONENT_CM_BACKTRACE
+    bool "Enable CmBacktrace fault diagnosis"
+    default y
+    help
+      Integrate CmBacktrace for HardFault diagnosis and call stack backtrace.
+      When enabled, CmBacktrace source files are always compiled, but their
+      contents are conditionally compiled via the component macro.
+
+config CM_BACKTRACE_FIRMWARE_NAME
+    string "CmBacktrace firmware name"
+    default "LinRTOS_CmBacktrace"
+    depends on COMPONENT_CM_BACKTRACE
+    help
+      Firmware name displayed in CmBacktrace fault output and used in the
+      addr2line hint command.
+
+endmenu

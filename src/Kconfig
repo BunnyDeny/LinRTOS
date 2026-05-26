@@ -111,6 +111,7 @@ config TEST_ABORT_DELAY
 
 config TEST_CM_BACKTRACE
 	bool "CmBacktrace integration"
+	depends on COMPONENT_CM_BACKTRACE
 	help
 	  Verify CmBacktrace initialization, call stack backtrace,
 	  and HardFault diagnosis under LinRTOS.

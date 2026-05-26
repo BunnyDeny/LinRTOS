@@ -31,6 +31,8 @@
 
 #include "cmb_def.h"
 
+#ifdef COMPONENT_CM_BACKTRACE
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -44,5 +46,16 @@ void cm_backtrace_fault(uint32_t fault_handler_lr, uint32_t fault_handler_sp);
 #ifdef __cplusplus
 }
 #endif
+
+#else /* !COMPONENT_CM_BACKTRACE */
+
+/* Stub macros: calling CmBacktrace APIs when disabled compiles to no-ops */
+#define cm_backtrace_init(firmware_name, hardware_ver, software_ver)  ((void)0)
+#define cm_backtrace_firmware_info()                                  ((void)0)
+#define cm_backtrace_call_stack(buffer, size, sp)                     (0U)
+#define cm_backtrace_assert(sp)                                       ((void)0)
+#define cm_backtrace_fault(fault_handler_lr, fault_handler_sp)        ((void)0)
+
+#endif /* COMPONENT_CM_BACKTRACE */
 
 #endif /* _CORTEXM_BACKTRACE_H_ */

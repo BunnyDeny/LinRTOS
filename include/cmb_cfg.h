@@ -11,6 +11,8 @@
 /* Include LinRTOS config to get ARCH_CPU_CORTEX_Mx macros */
 #include "config.h"
 
+#ifdef COMPONENT_CM_BACKTRACE
+
 /* Print line: map to LinRTOS debug_printf */
 #define cmb_println(...) \
     do { \
@@ -43,5 +45,16 @@
 
 /* Print language: English */
 #define CMB_PRINT_LANGUAGE      0
+
+/* Firmware name for addr2line hint (from Kconfig) */
+#ifndef CMB_FIRMWARE_NAME
+    #ifdef CM_BACKTRACE_FIRMWARE_NAME
+        #define CMB_FIRMWARE_NAME   CM_BACKTRACE_FIRMWARE_NAME
+    #else
+        #define CMB_FIRMWARE_NAME   "LinRTOS_CmBacktrace"
+    #endif
+#endif
+
+#endif /* COMPONENT_CM_BACKTRACE */
 
 #endif /* _CMB_CFG_H_ */

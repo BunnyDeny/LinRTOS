@@ -65,7 +65,7 @@ static void cm_backtrace_test_task(void *param)
     (void)param;
 
     /* 初始化 CmBacktrace */
-    cm_backtrace_init("LinRTOS_CmBacktrace", "v1.0", "v1.0");
+    cm_backtrace_init(NULL, "v1.0", "v1.0");
 
     /* 打印固件信息 */
     cm_backtrace_firmware_info();

@@ -33,6 +33,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#ifdef COMPONENT_CM_BACKTRACE
+
 /* library software version number */
 #define CMB_SW_VERSION                "1.5.0"
 
@@ -429,5 +431,7 @@ if (!(EXPR))                                                                   \
 #else
     #error "not supported compiler"
 #endif
+
+#endif /* COMPONENT_CM_BACKTRACE */
 
 #endif /* _CMB_DEF_H_ */

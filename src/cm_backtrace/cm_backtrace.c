@@ -31,6 +31,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#ifdef COMPONENT_CM_BACKTRACE
+
 #if __STDC_VERSION__ < 199901L
     #error "must be C99 or higher. try to add '-std=c99' to compile parameters"
 #endif
@@ -148,7 +150,15 @@ static bool on_thread_before_fault = false;
  * library initialize
  */
 void cm_backtrace_init(const char *firmware_name, const char *hardware_ver, const char *software_ver) {
-    strncpy(fw_name, firmware_name, CMB_NAME_MAX);
+    if (firmware_name != NULL && firmware_name[0] != '\0') {
+        strncpy(fw_name, firmware_name, CMB_NAME_MAX);
+    } else {
+#ifdef CMB_FIRMWARE_NAME
+        strncpy(fw_name, CMB_FIRMWARE_NAME, CMB_NAME_MAX);
+#else
+        fw_name[0] = '\0';
+#endif
+    }
     strncpy(hw_ver, hardware_ver, CMB_NAME_MAX);
     strncpy(sw_ver, software_ver, CMB_NAME_MAX);
 
@@ -734,3 +744,5 @@ void cm_backtrace_fault(uint32_t fault_handler_lr, uint32_t fault_handler_sp) {
 
     print_call_stack(stack_pointer);
 }
+
+#endif /* COMPONENT_CM_BACKTRACE */

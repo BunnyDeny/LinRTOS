@@ -3,5 +3,8 @@ mainmenu "LinRTOS Configuration"
 # Architecture / CPU / Compiler selection
 source "arch/Kconfig"
 
+# Components (3rd-party libraries / optional features)
+source "components/Kconfig"
+
 # Introduce src subdirectory Kconfig
 source "src/Kconfig"
