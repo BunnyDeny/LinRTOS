@@ -21,6 +21,11 @@
         sys_printk("\r\n"); \
     } while(0)
 
+#define cmb_print(fmt, ...) \
+    do { \
+        sys_printk(fmt, ##__VA_ARGS__); \
+    } while(0)
+
 /* Enable OS platform (LinRTOS is an RTOS) */
 #define CMB_USING_OS_PLATFORM
 

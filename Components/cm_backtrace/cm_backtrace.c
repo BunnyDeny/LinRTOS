@@ -134,7 +134,6 @@ static size_t main_stack_size = 0;
 static uint32_t code_start_addr = 0;
 static size_t code_size = 0;
 static bool init_ok = false;
-static char call_stack_info[CMB_CALL_STACK_MAX_DEPTH * (8 + 1)] = { 0 };
 static bool on_fault = false;
 static bool stack_is_overflow = false;
 static struct cmb_hard_fault_regs regs;
@@ -435,14 +434,12 @@ static void print_call_stack(uint32_t sp) {
 
     cur_depth = cm_backtrace_call_stack(call_stack_buf, CMB_CALL_STACK_MAX_DEPTH, sp);
 
-    for (i = 0; i < cur_depth; i++) {
-        sprintf(call_stack_info + i * (8 + 1), "%08lx", (unsigned long)call_stack_buf[i]);
-        call_stack_info[i * (8 + 1) + 8] = ' ';
-    }
-
     if (cur_depth) {
-        cmb_println(print_info[PRINT_CALL_STACK_INFO], fw_name, cur_depth * (8 + 1),
-                call_stack_info);
+        cmb_print("Show more call stack info by run: addr2line -e %s -afpiC", fw_name);
+        for (i = 0; i < cur_depth; i++) {
+            cmb_print("  %08lx", (unsigned long)call_stack_buf[i]);
+        }
+        cmb_print("\r\n");
     } else {
         cmb_println(print_info[PRINT_CALL_STACK_ERR]);
     }
