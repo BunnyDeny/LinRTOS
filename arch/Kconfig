@@ -47,10 +47,10 @@ choice ARCH_COMPILER
       adaptations in port.c and port_asm.S.
 
 config ARCH_COMPILER_GCC
-    bool "GCC / Clang (ARM Compiler 6)"
+    bool "GCC (GNU toolchain)"
     help
-      GNU Compiler Collection or LLVM/Clang (e.g. arm-none-eabi-gcc).
-      Also covers ARM Compiler 6 which is Clang-based.
+      GNU Compiler Collection (e.g. arm-none-eabi-gcc).
+      Uses standard GCC inline assembly syntax.
 
 config ARCH_COMPILER_MDK
     bool "MDK (Keil)"
@@ -78,10 +78,12 @@ config ARCH_MDK_AC5
       in port.c (already implemented).
 
 config ARCH_MDK_AC6
-    bool "ARM Compiler 6 (clang-based)"
+    bool "ARM Compiler 6 (armclang, LLVM-based)"
     help
-      Modern Clang-based toolchain. Supports GCC-style inline assembly
-      and defines both __ARMCC_VERSION and __clang__.
+      Modern Clang-based toolchain shipped with Keil MDK.
+      Compatible with GCC-style inline assembly (shares the same
+      port layer code path as GCC). Defines both __ARMCC_VERSION
+      and __clang__.
 endchoice
 
 endmenu

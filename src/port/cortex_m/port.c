@@ -109,7 +109,7 @@ void rtos_port_exit_critical(uint32_t state)
 }
 
 #else
-/* ---- GCC / Clang / ARM Compiler 6 ---- */
+/* ---- GCC / MDK-AC6 ---- */
 uint32_t rtos_port_enter_critical(void)
 {
     uint32_t primask;
@@ -161,7 +161,7 @@ int rtos_port_is_in_isr(void)
 }
 
 #else
-/* ---- GCC / Clang / ARM Compiler 6 ---- */
+/* ---- GCC / MDK-AC6 ---- */
 int rtos_port_is_in_isr(void)
 {
     /* IPSR: 0=线程模式，非0=异常/中断 */

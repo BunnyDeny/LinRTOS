@@ -26,7 +26,7 @@
         return (int)__CLZ(x);
     }
 #else
-    /* GCC / Clang / ARM Compiler 6 */
+    /* GCC / MDK-AC6 */
     static inline int rtos_clz(uint32_t x) {
         return __builtin_clz(x);
     }

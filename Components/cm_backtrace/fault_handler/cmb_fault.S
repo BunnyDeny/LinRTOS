@@ -2,7 +2,7 @@
  * CmBacktrace HardFault Handler — Cross-compiler assembly
  *
  * Compatible with:
- *   - GCC / Clang
+ *   - GCC / MDK-AC6
  *   - MDK-AC5 (armasm)
  *   - MDK-AC6 (armclang, GNU-syntax)
  *   - IAR Embedded Workbench
@@ -18,7 +18,7 @@
  * Compiler-specific section directives and symbol exports
  * ============================================================ */
 #if defined(ARCH_COMPILER_GCC) || defined(ARCH_MDK_AC6)
-    /* GCC / Clang / MDK-AC6 */
+    /* GCC / MDK-AC6 */
     .syntax unified
     .thumb
     .text
