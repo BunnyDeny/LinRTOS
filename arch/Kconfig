@@ -63,13 +63,10 @@ config ARCH_COMPILER_IAR
       IAR C/C++ Compiler for ARM (iccarm).
 endchoice
 
+if ARCH_COMPILER_MDK
+
 choice ARCH_MDK_VERSION
-    prompt "MDK ARM Compiler version"
-    depends on ARCH_COMPILER_MDK
     default ARCH_MDK_AC6
-    help
-      ARM Compiler 5 uses the legacy armcc toolchain.
-      ARM Compiler 6 is Clang-based and supports GNU-style inline assembly.
 
 config ARCH_MDK_AC5
     bool "ARM Compiler 5 (armcc)"
@@ -85,5 +82,7 @@ config ARCH_MDK_AC6
       port layer code path as GCC). Defines both __ARMCC_VERSION
       and __clang__.
 endchoice
+
+endif
 
 endmenu
