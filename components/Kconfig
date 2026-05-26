@@ -2,7 +2,7 @@ menu "Components"
 
 config COMPONENT_CM_BACKTRACE
     bool "Enable CmBacktrace fault diagnosis"
-    default y
+    default n
     help
       Integrate CmBacktrace for HardFault diagnosis and call stack backtrace.
       When enabled, CmBacktrace source files are always compiled, but their
