@@ -24,7 +24,7 @@ static void lincli_task_entry(void *param)
     }
     for (;;) {
         scheduler_task();
-        rtos_task_yield();
+        rtos_task_delay(20);
     }
 }
 
