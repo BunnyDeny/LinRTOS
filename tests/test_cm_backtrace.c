@@ -30,10 +30,12 @@ static uint32_t test_task_stack[512];
 
 static void trigger_memory_fault(void)
 {
-    /* 向地址 0x00000000 写入，触发非法访问。
+    /* 向一个未映射地址写入，触发 BusFault -> HardFault。
+     * STM32 启动后地址 0x00000000 映射到 Flash（有效区域），写它不会触发异常，
+     * 因此使用 0xFFFFFFFF（确定未映射）作为野指针目标。
      * 使用 volatile 指针防止编译器优化掉写操作。
      */
-    volatile uint32_t *bad_ptr = (volatile uint32_t *)0x00000000;
+    volatile uint32_t *bad_ptr = (volatile uint32_t *)0xFFFFFFFF;
     *bad_ptr = 0xDEADBEEF;
 }
 
