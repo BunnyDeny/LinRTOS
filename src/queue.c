@@ -368,9 +368,11 @@ rtos_err_t rtos_queue_generic_recv(struct rtos_queue *q,
 
         /* 被唤醒后：检查是正常唤醒还是超时 */
         struct rtos_tcb *tcb = (struct rtos_tcb *)rtos_current_tcb;
-        if (tcb->event_list == NULL) {
+        if (tcb->wakeup_reason == 2) {
+            tcb->wakeup_reason = 0;
             return RTOS_ERR_TIMEOUT;
         }
+        tcb->wakeup_reason = 0;
         /* 正常唤醒，继续循环尝试接收 */
     }
 }
