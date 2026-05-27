@@ -77,6 +77,24 @@ config TEST_WORKQUEUE
 	help
 	  Verify workqueue immediate and delayed work scheduling.
 
+config TEST_QUEUE_BASIC
+	bool "Queue basic API (send/recv/front/overwrite/peek)"
+	help
+	  Verify rtos_queue_init, send, recv, front-insert,
+	  overwrite, peek, and status query APIs.
+
+config TEST_QUEUE_BLOCKING
+	bool "Queue blocking and timeout"
+	help
+	  Verify blocking send/recv, producer-consumer sync,
+	  and RTOS_DONT_WAIT / timeout behaviors.
+
+config TEST_QUEUE_ISR
+	bool "Queue ISR-safe send_from_isr"
+	help
+	  Verify rtos_queue_generic_send_from_isr in SysTick
+	  interrupt context with a consumer task.
+
 endchoice
 
 endif
