@@ -1,4 +1,4 @@
-menu "Third-Party Components"
+menu "CLI Components"
 
 config LIST
 	bool "Enable linked list (list.h)"
