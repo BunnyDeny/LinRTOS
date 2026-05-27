@@ -61,12 +61,13 @@ static void prv_copy_data_to_queue(struct rtos_queue *q,
         }
     }
     else if (pos == RTOS_QUEUE_SEND_FRONT) {
-        /* 头部插入：从 read_from 往前退 */
+        /* 头部插入：先写到当前 read_from，再把指针往前退
+         * 这样下次 recv 时 read_from += item_size 正好读到这个新数据 */
+        memcpy(q->read_from, item, q->item_size);
         q->read_from -= q->item_size;
         if (q->read_from < q->buffer) {
             q->read_from = q->buffer_end - q->item_size;
         }
-        memcpy(q->read_from, item, q->item_size);
     }
     else { /* RTOS_QUEUE_SEND_OVERWRITE */
         /* 直接覆盖 read_from 位置的元素 */
