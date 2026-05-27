@@ -72,6 +72,8 @@ Core/Src/stm32g4xx_hal_msp.c \
 ../../Components/lincli/src/lib/cli_vsnprintf.c \
 ../../Components/lincli/src/lib/kfifo.c \
 ../../Components/lincli/src/lib/stateM.c \
+../../Components/lincli/src/third_party/workqueue/workqueue.c \
+../../Components/lincli/src/third_party/hexdump/hexdump.c \
 ../../tests/test_fpu.c \
 ../../tests/test_selfdelete.c \
 ../../tests/test_basic_tasks.c \

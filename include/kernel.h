@@ -9,7 +9,7 @@
 #define RTOS_KERNEL_H
 
 #include "types.h"
-#include "list.h"
+#include "rtos_list.h"
 #include "config.h"
 
 #ifdef __cplusplus

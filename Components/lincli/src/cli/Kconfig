@@ -1,0 +1,80 @@
+menu "CLI Features"
+
+config CLI_ENABLE_USER
+    bool "Enable user system"
+    default y
+    help
+      Enable user management system.
+
+config CLI_ENABLE_ENV
+    bool "Enable environment variables"
+    default y
+    help
+      Enable environment variable get/set.
+
+config CLI_ENABLE_VAR
+    bool "Enable variable system"
+    default y
+    help
+      Enable internal variable get/set.
+
+config CLI_ENABLE_ADVANCED_COMPLETION
+    bool "Enable advanced tab completion"
+    default y
+    help
+      Option completion, candidate values, highlight loop.
+      If disabled, only basic prefix matching + list print remains.
+
+config CLI_ENABLE_HELP
+    bool "Enable help system (--help auto-generation)"
+    default y
+
+config CLI_ENABLE_CMD_CHAIN
+    bool "Enable command chaining (&&)"
+    default y
+
+config CLI_ENABLE_AUTO_RUN
+    bool "Enable auto-run commands (CLI_AUTO_CMD)"
+    default y
+
+config CLI_ENABLE_RAW_COMMAND
+    bool "Enable raw argument commands"
+    default n
+    help
+      Allow commands with argc/argv style handlers instead of option parsing.
+      Useful for cp/mv-like commands.
+
+config HISTORY_MAX
+    int "Command history entries"
+    default 4
+    range 1 64
+    help
+      Embedded targets should keep this small.
+
+config DISPLAY_MAX_COWS
+    int "Max columns for tab completion display"
+    default 50
+    range 10 200
+    help
+      If your terminal window is narrower than this value,
+      tab completion output may be truncated.
+
+config CLI_CMD_BUF_SIZE
+    int "Command argument shared buffer size"
+    default 128
+    range 64 1024
+    help
+      Increase this if you see "command argument missing bytes" errors.
+
+config CLI_MPOOL_COUNT
+    int "Memory pool block count"
+    default 6
+    range 1 32
+
+config CLI_MPOOL_SIZE
+    int
+    default CLI_CMD_BUF_SIZE
+    help
+      Currently fixed equal to CLI_CMD_BUF_SIZE.
+
+endmenu

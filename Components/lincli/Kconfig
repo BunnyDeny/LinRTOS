@@ -1,0 +1,6 @@
+menu "LinCLI (Command Line Interface)"
+
+source "Components/lincli/src/cli/Kconfig"
+source "Components/lincli/src/third_party/Kconfig"
+
+endmenu

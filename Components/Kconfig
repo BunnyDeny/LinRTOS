@@ -1,5 +1,7 @@
 menu "Components"
 
+source "Components/lincli/Kconfig"
+
 config COMPONENT_CM_BACKTRACE
     bool "Enable CmBacktrace fault diagnosis"
     default n
