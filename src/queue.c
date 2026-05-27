@@ -115,7 +115,7 @@ static void prv_copy_data_from_queue(struct rtos_queue *q,
 /**
  * @brief 将当前任务按优先级降序插入事件链表
  */
-static void prv_insert_task_to_event_list(struct rtos_list_node *event_list,
+void prv_insert_task_to_event_list(struct rtos_list_node *event_list,
                                           struct rtos_tcb *tcb)
 {
     struct rtos_list_node *pos;
@@ -134,7 +134,7 @@ static void prv_insert_task_to_event_list(struct rtos_list_node *event_list,
 /**
  * @brief 将当前任务阻塞在指定事件链表上（可附带超时）
  */
-static void prv_block_current_task(struct rtos_list_node *event_list,
+void prv_block_current_task(struct rtos_list_node *event_list,
                                    uint32_t timeout)
 {
     struct rtos_tcb *tcb = (struct rtos_tcb *)rtos_current_tcb;
@@ -171,7 +171,7 @@ static void prv_block_current_task(struct rtos_list_node *event_list,
  * @brief 从事件链表头部唤醒最高优先级任务
  * @return 被唤醒的任务指针；NULL=无任务等待
  */
-static struct rtos_tcb *prv_wake_highest_from_event_list(
+struct rtos_tcb *prv_wake_highest_from_event_list(
     struct rtos_list_node *event_list)
 {
     if (rtos_list_is_empty(event_list)) {

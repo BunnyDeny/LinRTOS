@@ -95,6 +95,42 @@ config TEST_QUEUE_ISR
 	  Verify rtos_queue_generic_send_from_isr in SysTick
 	  interrupt context with a consumer task.
 
+config TEST_SEMAPHORE_BINARY
+	bool "Semaphore binary (give/take/boundary/timeout)"
+	help
+	  Verify rtos_semaphore_init_binary, give, take,
+	  empty/full boundary, and timeout behavior.
+
+config TEST_SEMAPHORE_COUNTING
+	bool "Semaphore counting (initial/max/overflow)"
+	help
+	  Verify rtos_semaphore_init_counting, multi-give,
+	  multi-take, and max-count boundary.
+
+config TEST_SEMAPHORE_ISR
+	bool "Semaphore ISR-safe give_from_isr"
+	help
+	  Verify rtos_semaphore_give_from_isr in SysTick
+	  interrupt context with a consumer task.
+
+config TEST_MUTEX_BASIC
+	bool "Mutex basic (take/give/ownership/state)"
+	help
+	  Verify rtos_mutex_init, take, give, holder query,
+	  and non-holder give rejection.
+
+config TEST_MUTEX_RECURSIVE
+	bool "Mutex recursive (nested take/give)"
+	help
+	  Verify rtos_mutex_init_recursive, take_recursive,
+	  give_recursive, and count tracking.
+
+config TEST_MUTEX_PRIORITY
+	bool "Mutex priority inheritance"
+	help
+	  Verify priority boosting when high-priority task
+	  blocks on mutex held by low-priority task.
+
 endchoice
 
 endif

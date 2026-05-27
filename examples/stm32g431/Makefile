@@ -46,6 +46,8 @@ Core/Src/stm32g4xx_hal_msp.c \
 ../../src/task.c \
 ../../src/tick.c \
 ../../src/queue.c \
+../../src/semaphore.c \
+../../src/mutex.c \
 ../../src/port/cortex_m/port.c \
 ../../Components/cm_backtrace/cm_backtrace.c \
 ../../Components/lincli/src/cli/cli_candidate.c \
@@ -90,6 +92,12 @@ Core/Src/stm32g4xx_hal_msp.c \
 ../../tests/test_queue_basic.c \
 ../../tests/test_queue_blocking.c \
 ../../tests/test_queue_isr.c \
+../../tests/test_semaphore_binary.c \
+../../tests/test_semaphore_counting.c \
+../../tests/test_semaphore_isr.c \
+../../tests/test_mutex_basic.c \
+../../tests/test_mutex_recursive.c \
+../../tests/test_mutex_priority.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_pwr_ex.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart_ex.c \

@@ -5,6 +5,36 @@
 
 static struct rtos_queue s_q;
 static uint8_t s_buf[5 * sizeof(uint32_t)];
+static uint32_t s_pstk[128];
+static uint32_t s_cstk[128];
+static volatile uint32_t s_pcnt = 0;
+static volatile uint32_t s_ccnt = 0;
+
+static void producer(void *p)
+{
+    (void)p;
+    for (uint32_t i = 0; i < 5; i++) {
+        rtos_err_t e = rtos_queue_send(&s_q, &i, RTOS_WAIT_FOREVER);
+        RTOS_ASSERT(e == RTOS_OK);
+        s_pcnt++;
+        sys_printk("[BASIC] sent %lu\r\n", (unsigned long)i);
+    }
+    rtos_task_delete(NULL);
+}
+
+static void consumer(void *p)
+{
+    (void)p;
+    for (uint32_t i = 0; i < 5; i++) {
+        uint32_t v;
+        rtos_err_t e = rtos_queue_recv(&s_q, &v, RTOS_WAIT_FOREVER);
+        RTOS_ASSERT(e == RTOS_OK);
+        RTOS_ASSERT(v == i);
+        s_ccnt++;
+        sys_printk("[BASIC] recv %lu\r\n", (unsigned long)v);
+    }
+    rtos_task_delete(NULL);
+}
 
 void app_entry_task(void *param)
 {
@@ -18,20 +48,13 @@ void app_entry_task(void *param)
     RTOS_ASSERT(rtos_queue_spaces_available(&s_q) == 5);
     sys_printk("[BASIC] init OK\r\n");
 
-    /* 2. FIFO send/recv */
-    for (uint32_t i = 0; i < 5; i++) {
-        err = rtos_queue_send(&s_q, &i, RTOS_DONT_WAIT);
-        RTOS_ASSERT(err == RTOS_OK);
-    }
-    RTOS_ASSERT(rtos_queue_is_full(&s_q));
-    for (uint32_t i = 0; i < 5; i++) {
-        uint32_t v;
-        err = rtos_queue_recv(&s_q, &v, RTOS_DONT_WAIT);
-        RTOS_ASSERT(err == RTOS_OK);
-        RTOS_ASSERT(v == i);
-    }
+    /* 2. 多任务 FIFO 生产者-消费者 */
+    rtos_task_create(producer, "prod", s_pstk, 128, NULL, 2, NULL);
+    rtos_task_create(consumer, "cons", s_cstk, 128, NULL, 5, NULL);
+
+    while (s_pcnt < 5 || s_ccnt < 5) rtos_task_delay(50);
     RTOS_ASSERT(rtos_queue_is_empty(&s_q));
-    sys_printk("[BASIC] FIFO OK\r\n");
+    sys_printk("[BASIC] FIFO producer-consumer OK\r\n");
 
     /* 3. send_to_front */
     uint32_t a = 10, b = 20;
