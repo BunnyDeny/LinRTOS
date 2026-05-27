@@ -34,6 +34,7 @@ struct rtos_tcb {
     struct rtos_list_node delay_node;   /* 🔗 延时队列链表节点 */
     struct rtos_list_node event_node;   /* 🔗 事件等待链表节点（队列/信号量阻塞用） */
     struct rtos_list_node *event_list;  /* 🔗 指向当前阻塞的事件链表头，NULL=未在事件上阻塞 */
+    uint8_t   wakeup_reason;        /* 0=none, 1=正常唤醒, 2=超时唤醒 */
 
     uint32_t  wake_tick;           /* ⏰ 唤醒时间（绝对tick） */
 };

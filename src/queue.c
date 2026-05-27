@@ -183,6 +183,7 @@ static struct rtos_tcb *prv_wake_highest_from_event_list(
 
     rtos_list_remove(&tcb->event_node);
     tcb->event_list = NULL;
+    tcb->wakeup_reason = 1;  /* 正常唤醒 */
 
     /* 若同时挂在 delay_list 上（设置了超时），一并移除 */
     if (tcb->delay_node.next != &tcb->delay_node) {
@@ -307,9 +308,11 @@ rtos_err_t rtos_queue_generic_send(struct rtos_queue *q,
 
         /* 被唤醒后：检查是正常唤醒还是超时 */
         struct rtos_tcb *tcb = (struct rtos_tcb *)rtos_current_tcb;
-        if (tcb->event_list == NULL) {
+        if (tcb->wakeup_reason == 2) {
+            tcb->wakeup_reason = 0;
             return RTOS_ERR_TIMEOUT;
         }
+        tcb->wakeup_reason = 0;
         /* 正常唤醒，继续循环尝试发送 */
     }
 }

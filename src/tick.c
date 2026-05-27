@@ -49,6 +49,12 @@ void rtos_tick_handler(void)
             /* 延时到期，唤醒任务 */
             rtos_list_remove(&tcb->delay_node);
             tcb->wake_tick = 0;
+            /* 若任务同时阻塞在某个事件链表（队列/信号量），一并移除 */
+            if (tcb->event_list) {
+                rtos_list_remove(&tcb->event_node);
+                tcb->event_list = NULL;
+            }
+            tcb->wakeup_reason = 2;  /* 标记为超时唤醒 */
             rtos_task_ready(tcb);
             /* 若被唤醒的任务优先级更高，标记需要调度 */
             if (curr && tcb->priority > curr->priority) {
