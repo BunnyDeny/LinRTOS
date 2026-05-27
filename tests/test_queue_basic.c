@@ -42,12 +42,15 @@ void app_entry_task(void *param)
     rtos_queue_recv(&s_q, &v, RTOS_DONT_WAIT); RTOS_ASSERT(v == 10);
     sys_printk("[BASIC] front OK\r\n");
 
-    /* 4. overwrite */
+    /* 4. overwrite (length must be 1) */
+    static struct rtos_queue s_q1;
+    static uint8_t s_buf1[1 * sizeof(uint32_t)];
+    rtos_queue_init(&s_q1, s_buf1, 1, sizeof(uint32_t));
     uint32_t x = 100;
-    rtos_queue_send(&s_q, &x, RTOS_DONT_WAIT);
+    rtos_queue_send(&s_q1, &x, RTOS_DONT_WAIT);
     x = 200;
-    rtos_queue_overwrite(&s_q, &x);
-    rtos_queue_recv(&s_q, &v, RTOS_DONT_WAIT);
+    rtos_queue_overwrite(&s_q1, &x);
+    rtos_queue_recv(&s_q1, &v, RTOS_DONT_WAIT);
     RTOS_ASSERT(v == 200);
     sys_printk("[BASIC] overwrite OK\r\n");
 
