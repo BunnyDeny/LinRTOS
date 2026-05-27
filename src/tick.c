@@ -33,10 +33,17 @@ void rtos_tick_handler(void)
 
     g_kernel.tick_count++;
 
-    /* ── 处理延时队列 ── */
+    /* tick 回绕时交换两个延时列表 */
+    if (g_kernel.tick_count == 0) {
+        struct rtos_list_node *px_temp = g_kernel.px_delayed_task_list;
+        g_kernel.px_delayed_task_list = g_kernel.px_overflow_delayed_task_list;
+        g_kernel.px_overflow_delayed_task_list = px_temp;
+    }
+
+    /* ── 处理延时队列（只遍历当前活跃的 delay 列表）── */
     struct rtos_tcb *curr = (struct rtos_tcb *)rtos_current_tcb;
     struct rtos_list_node *pos, *n;
-    rtos_list_for_each_safe(pos, n, &g_kernel.delay_list) {
+    rtos_list_for_each_safe(pos, n, g_kernel.px_delayed_task_list) {
         struct rtos_tcb *tcb = rtos_list_entry(pos, struct rtos_tcb, delay_node);
         if ((int32_t)(g_kernel.tick_count - tcb->wake_tick) >= 0) {
             /* 延时到期，唤醒任务 */

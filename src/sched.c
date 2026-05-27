@@ -55,6 +55,9 @@ void rtos_kernel_init(void)
         rtos_list_init(&g_kernel.ready_list[i]);
     }
     rtos_list_init(&g_kernel.delay_list);
+    rtos_list_init(&g_kernel.delay_list_overflow);
+    g_kernel.px_delayed_task_list = &g_kernel.delay_list;
+    g_kernel.px_overflow_delayed_task_list = &g_kernel.delay_list_overflow;
     rtos_list_init(&g_kernel.terminated_list);
 }
 

@@ -11,6 +11,7 @@
 #include "types.h"
 #include "config.h"
 #include "task.h"
+#include "rtos_queue.h"
 
 #ifdef __cplusplus
 extern "C" {

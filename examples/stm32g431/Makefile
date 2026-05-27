@@ -45,6 +45,7 @@ Core/Src/stm32g4xx_hal_msp.c \
 ../../src/sched.c \
 ../../src/task.c \
 ../../src/tick.c \
+../../src/queue.c \
 ../../src/port/cortex_m/port.c \
 ../../Components/cm_backtrace/cm_backtrace.c \
 ../../Components/lincli/src/cli/cli_candidate.c \

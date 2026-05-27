@@ -32,6 +32,8 @@ struct rtos_tcb {
 
     struct rtos_list_node ready_node;   /* 🔗 就绪队列链表节点 */
     struct rtos_list_node delay_node;   /* 🔗 延时队列链表节点 */
+    struct rtos_list_node event_node;   /* 🔗 事件等待链表节点（队列/信号量阻塞用） */
+    struct rtos_list_node *event_list;  /* 🔗 指向当前阻塞的事件链表头，NULL=未在事件上阻塞 */
 
     uint32_t  wake_tick;           /* ⏰ 唤醒时间（绝对tick） */
 };
@@ -65,7 +67,11 @@ struct rtos_kernel {
     volatile uint8_t  is_running;    /* 调度器是否已启动 */
     volatile uint8_t  need_resched;  /* 标记需要调度 */
 
-    struct rtos_list_node delay_list;    /* 按 wake_tick 升序排列的延时队列 */
+    struct rtos_list_node delay_list;           /* 当前周期的延时队列（按 wake_tick 升序） */
+    struct rtos_list_node delay_list_overflow;  /* 跨越 tick 回绕边界的延时队列 */
+    struct rtos_list_node *px_delayed_task_list;      /* 指向当前活跃的 delay 列表 */
+    struct rtos_list_node *px_overflow_delayed_task_list; /* 指向 overflow 列表 */
+
     struct rtos_list_node terminated_list; /* 已终止、待空闲任务回收的 TCB 列表 */
 
 #if RTOS_ENABLE_IDLE_HOOK

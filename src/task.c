@@ -37,6 +37,8 @@ static struct rtos_tcb *rtos_tcb_alloc(void)
             memset(tcb, 0, sizeof(*tcb));
             rtos_list_init(&tcb->ready_node);
             rtos_list_init(&tcb->delay_node);
+            rtos_list_init(&tcb->event_node);
+            tcb->event_list = NULL;
             RTOS_EXIT_CRITICAL();
             return tcb;
         }
@@ -170,6 +172,10 @@ void rtos_task_delete(rtos_task_handle_t task)
         rtos_task_unready(tcb);
     } else if (tcb->state == RTOS_TASK_BLOCKED) {
         rtos_list_remove(&tcb->delay_node);
+        if (tcb->event_list) {
+            rtos_list_remove(&tcb->event_node);
+            tcb->event_list = NULL;
+        }
     }
 
     tcb->state = RTOS_TASK_DELETED;
@@ -215,6 +221,10 @@ void rtos_task_suspend(rtos_task_handle_t task)
         }
     } else if (tcb->state == RTOS_TASK_BLOCKED) {
         rtos_list_remove(&tcb->delay_node);
+        if (tcb->event_list) {
+            rtos_list_remove(&tcb->event_node);
+            tcb->event_list = NULL;
+        }
         tcb->state = RTOS_TASK_SUSPENDED;
     }
     RTOS_EXIT_CRITICAL();
@@ -255,6 +265,13 @@ rtos_err_t rtos_task_abort_delay(rtos_task_handle_t task)
 
     rtos_list_remove(&tcb->delay_node);
     tcb->wake_tick = 0;
+
+    /* 如果任务同时阻塞在某个事件链表上，一并移除 */
+    if (tcb->event_list) {
+        rtos_list_remove(&tcb->event_node);
+        tcb->event_list = NULL;
+    }
+
     rtos_task_ready(tcb);
     RTOS_EXIT_CRITICAL();
 
@@ -278,11 +295,20 @@ void rtos_task_delay(uint32_t ticks)
     RTOS_ENTER_CRITICAL();
     tcb->wake_tick = g_kernel.tick_count + ticks;
     tcb->state = RTOS_TASK_BLOCKED;
+    tcb->event_list = NULL;   /* 纯延时阻塞，不在事件链表上 */
     rtos_task_unready(tcb);
 
-    /* 按 wake_tick 升序插入延时队列 */
+    /* 双列表分流：跨越 tick 回绕边界的任务放入 overflow 列表 */
+    struct rtos_list_node *target_list;
+    if (tcb->wake_tick < g_kernel.tick_count) {
+        target_list = g_kernel.px_overflow_delayed_task_list;
+    } else {
+        target_list = g_kernel.px_delayed_task_list;
+    }
+
+    /* 在目标列表中按 wake_tick 升序找插入位置 */
     struct rtos_list_node *pos;
-    rtos_list_for_each(pos, &g_kernel.delay_list) {
+    rtos_list_for_each(pos, target_list) {
         struct rtos_tcb *p = rtos_list_entry(pos, struct rtos_tcb, delay_node);
         if ((int32_t)(p->wake_tick - tcb->wake_tick) > 0) {
             break;
