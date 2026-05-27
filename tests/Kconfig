@@ -71,6 +71,12 @@ config TEST_CM_BACKTRACE
 	  Verify CmBacktrace initialization, call stack backtrace,
 	  and HardFault diagnosis under LinRTOS.
 
+config TEST_WORKQUEUE
+	bool "Workqueue scheduling"
+	depends on WORKQUEUE
+	help
+	  Verify workqueue immediate and delayed work scheduling.
+
 endchoice
 
 endif

@@ -85,6 +85,7 @@ Core/Src/stm32g4xx_hal_msp.c \
 ../../tests/test_stack_free.c \
 ../../tests/test_abort_delay.c \
 ../../tests/test_cm_backtrace.c \
+../../tests/test_workqueue.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_pwr_ex.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart_ex.c \
