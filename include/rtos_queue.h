@@ -96,6 +96,11 @@ rtos_err_t rtos_queue_init(struct rtos_queue *queue, void *buffer,
  */
 void rtos_queue_delete(struct rtos_queue *queue);
 
+/**
+ * @brief 释放任务持有的队列资源（内核内部，用于任务删除时清理互斥锁）
+ */
+void rtos_queue_release_held(struct rtos_tcb *tcb);
+
 /* ============================================================
  * 📨 统一发送 / 接收（任务上下文，可阻塞）
  * ============================================================ */

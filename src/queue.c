@@ -195,6 +195,51 @@ struct rtos_tcb *prv_wake_highest_from_event_list(
     return tcb;
 }
 
+/**
+ * @brief 释放任务持有的队列资源（用于任务删除时的清理）
+ *
+ * 若 deleted_task 持有互斥锁，将其完全释放、唤醒下一个等待者。
+ * 调用者必须处于临界区内。
+ */
+void rtos_queue_release_held(struct rtos_tcb *tcb)
+{
+    struct rtos_queue *q = tcb->held_queue;
+    if (!q) {
+        return;
+    }
+
+    /* 仅互斥锁/递归互斥锁有 holder 概念 */
+    if (q->queue_type != RTOS_QUEUE_TYPE_MUTEX &&
+        q->queue_type != RTOS_QUEUE_TYPE_RECURSIVE) {
+        tcb->held_queue = NULL;
+        return;
+    }
+
+    /* 递归互斥锁：重置计数以完整释放 */
+    if (q->queue_type == RTOS_QUEUE_TYPE_RECURSIVE) {
+        q->recursive_count = 0;
+    }
+
+    /* 清除优先级继承状态（持有者即将被销毁，无需恢复其优先级） */
+    if (q->original_priority != 0xFFFFFFFF) {
+        q->original_priority = 0xFFFFFFFF;
+    }
+
+    /* 唤醒下一个等待者，或将互斥锁标记为可用 */
+    struct rtos_tcb *woken =
+        prv_wake_highest_from_event_list(&q->tasks_waiting_to_receive);
+
+    if (woken) {
+        q->mutex_holder = woken;
+        woken->held_queue = q;
+    } else {
+        q->messages_waiting = 1;
+        q->mutex_holder = NULL;
+    }
+
+    tcb->held_queue = NULL;
+}
+
 /* ============================================================
  * 🏗️ 生命周期
  * ============================================================ */

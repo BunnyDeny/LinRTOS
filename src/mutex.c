@@ -85,6 +85,7 @@ rtos_err_t rtos_mutex_take(struct rtos_queue *mutex, uint32_t timeout)
         mutex->messages_waiting = 0;
         mutex->mutex_holder = curr;
         mutex->original_priority = 0xFFFFFFFF;
+        curr->held_queue = mutex;
         RTOS_EXIT_CRITICAL();
         return RTOS_OK;
     }
@@ -147,9 +148,12 @@ rtos_err_t rtos_mutex_give(struct rtos_queue *mutex)
     struct rtos_tcb *woken =
         prv_wake_highest_from_event_list(&mutex->tasks_waiting_to_receive);
 
+    curr->held_queue = NULL;
+
     if (woken) {
         mutex->mutex_holder = woken;
         mutex->original_priority = 0xFFFFFFFF;
+        woken->held_queue = mutex;
     } else {
         mutex->messages_waiting = 1;
         mutex->mutex_holder = NULL;

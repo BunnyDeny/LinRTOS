@@ -9,6 +9,7 @@
 #include "linRTOS.h"
 #include "kernel.h"
 #include "port.h"
+#include "rtos_queue.h"
 
 extern volatile struct rtos_tcb *rtos_current_tcb;
 
@@ -180,6 +181,9 @@ void rtos_task_delete(rtos_task_handle_t task)
 
     tcb->state = RTOS_TASK_DELETED;
 
+    /* 释放任务持有的互斥锁等队列资源，防止悬空指针 */
+    rtos_queue_release_held(tcb);
+
     if (tcb == (struct rtos_tcb *)rtos_current_tcb) {
         /* 自删：强制释放所有嵌套的调度锁，挂到待回收列表，然后触发调度 */
         g_kernel.need_resched = 1;
@@ -331,6 +335,8 @@ void rtos_task_delay_until(uint32_t *prev_wake_tick, uint32_t interval)
 
     if ((int32_t)(next_wake - now) > 0) {
         rtos_task_delay(next_wake - now);
+    } else {
+        next_wake = now;   /* 错过截止期，从现在重新对齐，避免高频追赶 */
     }
 
     *prev_wake_tick = next_wake;
@@ -394,6 +400,12 @@ void rtos_task_set_priority(rtos_task_handle_t task, uint32_t priority)
         rtos_task_ready(tcb);
     } else {
         tcb->priority = priority;
+    }
+
+    /* 若任务持有互斥锁且发生过优先级继承，同步 original_priority */
+    if (tcb->held_queue &&
+        tcb->held_queue->original_priority != 0xFFFFFFFF) {
+        tcb->held_queue->original_priority = priority;
     }
 
     RTOS_EXIT_CRITICAL();
@@ -530,8 +542,8 @@ void rtos_scheduler_start(void)
     /* 选出第一个运行的任务 */
     struct rtos_tcb *first = rtos_pick_highest_ready();
     first->state = RTOS_TASK_RUNNING;
-    g_kernel.is_running = 1;
     rtos_current_tcb = first;
+    g_kernel.is_running = 1;
 
     /* 启动第一个任务（触发 SVC） */
     rtos_port_start_first_task();

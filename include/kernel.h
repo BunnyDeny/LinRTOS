@@ -20,6 +20,8 @@ extern "C" {
  * 📌 任务控制块 (TCB)
  * ============================================================ */
 
+struct rtos_queue;
+
 struct rtos_tcb {
     uint32_t *stack_ptr;           /* 💾 当前栈指针 (PSP) */
     uint32_t *stack_base;          /* 📍 栈底（最低地址） */
@@ -37,6 +39,8 @@ struct rtos_tcb {
     uint8_t   wakeup_reason;        /* 0=none, 1=正常唤醒, 2=超时唤醒 */
 
     uint32_t  wake_tick;           /* ⏰ 唤醒时间（绝对tick） */
+
+    struct rtos_queue *held_queue;  /* 🔐 当前持有的队列资源（互斥锁），NULL=无 */
 };
 
 /* ============================================================

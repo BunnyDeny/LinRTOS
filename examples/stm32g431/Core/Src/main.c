@@ -112,7 +112,7 @@ void cli_enter_critical(void)
 
 void cli_exit_critical(void)
 {
-    if (--s_cli_critical_nest == 0) {
+    if (s_cli_critical_nest > 0 && --s_cli_critical_nest == 0) {
         rtos_port_exit_critical(s_cli_critical_state);
     }
 }
