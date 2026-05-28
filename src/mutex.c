@@ -102,7 +102,11 @@ rtos_err_t rtos_mutex_take(struct rtos_queue *mutex, uint32_t timeout)
         if (mutex->original_priority == 0xFFFFFFFF) {
             mutex->original_priority = mutex->mutex_holder->priority;
         }
+        /* 保存 original_priority：set_priority 内的同步逻辑会覆写它，
+         * 但内部继承提升不应改变恢复目标，所以事后还原。 */
+        uint32_t saved_orig = mutex->original_priority;
         rtos_task_set_priority(mutex->mutex_holder, curr->priority);
+        mutex->original_priority = saved_orig;
     }
 
     /* 阻塞到接收等待链表 */

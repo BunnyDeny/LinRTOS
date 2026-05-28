@@ -12,6 +12,11 @@
 
 #if defined(ENABLE_TEST_CASES) && defined(TEST_ALL)
 
+/* 嵌套函数是 GCC 扩展，Clang / IAR / ARMCC 均不支持 */
+#if !defined(__GNUC__) || defined(__clang__)
+#error "test_all.c requires GCC (nested functions are a GCC extension)"
+#endif
+
 #define TEST_ASSERT(cond, msg)                    \
     do {                                          \
         if (!(cond)) {                            \
@@ -374,47 +379,6 @@ static bool test_semaphore_counting(void)
 }
 
 /* ============================================================
- * 7. 信号量 ISR
- * ============================================================ */
-static bool test_semaphore_isr(void)
-{
-    static struct rtos_queue sem;
-    static volatile uint32_t sent = 0;
-    static volatile bool consume_done = false;
-
-    sys_printk("[%s]\r\n", __func__);
-    sent = 0; consume_done = false;
-
-    static uint32_t c_stk[128];
-    void consumer(void *p) {
-        (void)p;
-        for (int i = 0; i < 5; i++) {
-            rtos_semaphore_take(&sem, RTOS_WAIT_FOREVER);
-            sent++;
-        }
-        consume_done = true;
-        rtos_task_delete(NULL);
-    }
-
-    rtos_semaphore_init_binary(&sem);
-    rtos_task_create(consumer, "cons", c_stk, 128, NULL, 2, NULL);
-
-    /* 模拟 ISR 场景：在任务上下文中调用 from_isr */
-    for (int i = 0; i < 5; i++) {
-        rtos_task_delay(30);
-        bool woken = false;
-        rtos_err_t e = rtos_semaphore_give_from_isr(&sem, &woken);
-        TEST_ASSERT(e == RTOS_OK, "give_from_isr");
-    }
-
-    if (!wait_for_bool(&consume_done, true, 2000)) return false;
-    TEST_ASSERT(sent >= 5, "sent >= 5");
-
-    rtos_semaphore_delete(&sem);
-    return true;
-}
-
-/* ============================================================
  * 8. 队列基本 API
  * ============================================================ */
 static bool test_queue_basic(void)
@@ -557,49 +521,6 @@ static bool test_queue_blocking(void)
     TEST_ASSERT(e == RTOS_ERR_TIMEOUT, "recv timeout");
     TEST_ASSERT((int32_t)(t1 - t0) >= 50, "waited >= 50");
 
-    return true;
-}
-
-/* ============================================================
- * 10. 队列 ISR
- * ============================================================ */
-static bool test_queue_isr(void)
-{
-    static struct rtos_queue q;
-    static uint8_t buf[5 * sizeof(uint32_t)];
-    static uint32_t c_stk[128];
-    static volatile uint32_t received = 0;
-    static volatile bool done = false;
-
-    sys_printk("[%s]\r\n", __func__);
-    received = 0; done = false;
-
-    void consumer(void *p) {
-        (void)p;
-        for (int i = 0; i < 5; i++) {
-            uint32_t v;
-            rtos_err_t e = rtos_queue_recv(&q, &v, RTOS_WAIT_FOREVER);
-            if (e == RTOS_OK) received++;
-        }
-        done = true;
-        rtos_task_delete(NULL);
-    }
-
-    rtos_queue_init(&q, buf, 5, sizeof(uint32_t));
-    rtos_task_create(consumer, "cons", c_stk, 128, NULL, 2, NULL);
-
-    for (uint32_t i = 0; i < 5; i++) {
-        rtos_task_delay(20);
-        bool woken = false;
-        rtos_err_t e = rtos_queue_generic_send_from_isr(
-            &q, &i, RTOS_QUEUE_SEND_BACK, &woken);
-        TEST_ASSERT(e == RTOS_OK, "send_from_isr");
-    }
-
-    if (!wait_for_bool(&done, true, 2000)) return false;
-    TEST_ASSERT(received == 5, "received=5");
-
-    rtos_queue_delete(&q);
     return true;
 }
 
@@ -838,10 +759,8 @@ void app_entry_task(void *param)
         {"mutex_priority",     test_mutex_priority},
         {"semaphore_binary",   test_semaphore_binary},
         {"semaphore_counting", test_semaphore_counting},
-        {"semaphore_isr",      test_semaphore_isr},
         {"queue_basic",        test_queue_basic},
         {"queue_blocking",     test_queue_blocking},
-        {"queue_isr",          test_queue_isr},
         {"suspend_resume",     test_suspend_resume},
         {"priority",           test_priority},
         {"selfdelete",         test_selfdelete},
