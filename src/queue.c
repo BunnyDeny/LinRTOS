@@ -164,6 +164,7 @@ void prv_block_current_task(struct rtos_list_node *event_list,
         rtos_list_insert_before(pos, &tcb->delay_node);
     }
 
+    tcb->state = RTOS_TASK_BLOCKED;
     rtos_task_unready(tcb);
 }
 

@@ -83,7 +83,6 @@ void rtos_task_unready(struct rtos_tcb *tcb)
     if (rtos_list_is_empty(&g_kernel.ready_list[prio])) {
         g_kernel.ready_map &= ~((rtos_ready_map_t)1 << prio);
     }
-    tcb->state = RTOS_TASK_BLOCKED;
     RTOS_EXIT_CRITICAL();
 }
 
