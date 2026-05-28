@@ -1,154 +1,130 @@
-# LinRTOS 统一队列（Unified Queue）—— IPC 的原点
+# 🏗️ LinRTOS 统一队列 —— 全部 IPC 机制的根基
 
-> **版本**: LinRTOS v1.x  
-> **作者**: bunnydeny  
-> **定位**: 所有进程间通信（IPC）机制的单一底层实现。
-
----
-
-## 1. 为什么叫 "统一队列"
-
-在 LinRTOS 中，**消息队列、二进制信号量、计数信号量、互斥锁、递归互斥锁**……这些看似完全不同的 IPC 概念，底层都源于同一个数据结构：`struct rtos_queue`。
-
-这是 FreeRTOS 经典设计思想的继承与简化：
-
-| 上层概念 | `length` | `item_size` | 数据拷贝 | 额外标记 |
-|---------|---------|------------|---------|---------|
-| **消息队列** | N | `sizeof(T)` | 有（环形缓冲区 memcpy） | `QUEUE_TYPE_BASE` |
-| **二进制信号量** | 1 | 0 | 无 | `QUEUE_TYPE_BINARY` |
-| **计数信号量** | N | 0 | 无 | `QUEUE_TYPE_COUNTING` |
-| **互斥锁** | 1 | 0 | 无 | `QUEUE_TYPE_MUTEX` |
-| **递归互斥锁** | 1 | 0 | 无 | `QUEUE_TYPE_RECURSIVE` |
-
-当 `item_size == 0` 时，队列退化为**纯计数器**：`send` 只把 `messages_waiting++`，`recv` 只把 `messages_waiting--`，**零数据拷贝、零缓冲区开销**。这就是信号量和互斥锁的本质。
-
-因此，理解统一队列的 API，就等于理解了 LinRTOS 整个 IPC 体系的根基。
+> 📦 **版本**: LinRTOS v1.x
+> 🎯 **定位**: 消息队列、信号量、互斥锁的单一底层实现。
 
 ---
 
-## 2. 核心概念
+## 1. 💡 设计理念
 
-### 2.1 三种发送位置
+在 LinRTOS 中，所有进程间通信（IPC）机制共享同一个数据结构 `struct rtos_queue`。这不是普通的"消息队列"，而是一个通用同步原语：
 
-LinRTOS 队列支持三种写入策略：
-
-```c
-typedef enum {
-    RTOS_QUEUE_SEND_BACK = 0,   // 尾部追加（常规 FIFO）
-    RTOS_QUEUE_SEND_FRONT,      // 头部插入（高优先级消息插队）
-    RTOS_QUEUE_SEND_OVERWRITE,  // 覆盖写入（仅当 length == 1 时合法）
-} rtos_queue_send_pos_t;
+```
+                ┌──────────────────────┐
+                │   struct rtos_queue   │
+                │    🌀 环形缓冲区 (可选)  │
+                │    📊 messages_waiting │
+                │    📤 发送阻塞链表       │
+                │    📥 接收阻塞链表       │
+                │    🏷️  queue_type 标记  │
+                └──────┬───────────────┘
+                       │
+        ┌──────────────┼──────────────┐
+        │              │              │
+   ┌────▼────┐   ┌────▼────┐   ┌────▼────┐
+   │ 📨 消息队列│   │ 🚦 信号量 │   │ 🔐 互斥锁 │
+   │ copy data│   │仅操作计数│   │所有权+继承│
+   └─────────┘   └─────────┘   └─────────┘
 ```
 
-- **`SEND_BACK`**（默认）：常规队列行为，数据排到队尾。
-- **`SEND_FRONT`**：紧急消息插队，写到队首，下次 `recv` 优先读到。
-- **`OVERWRITE`**：覆盖队列中已有的唯一元素。**要求 `length == 1`**，否则触发断言。常用于单槽 Mailbox。
+> 💡 **核心思想**：当 `item_size == 0` 时，队列退化为纯计数器，不拷贝数据，不消耗缓冲区。这就是信号量和互斥锁的本质。
 
-### 2.2 阻塞与超时
-
-所有任务上下文的 `send` / `recv` 都支持阻塞：
-
-```c
-#define RTOS_DONT_WAIT      0U          // 不阻塞，立即返回
-#define RTOS_WAIT_FOREVER   0xFFFFFFFFU // 永久阻塞，直到被唤醒
-```
-
-- **发送阻塞**：队列满时，任务挂到 `tasks_waiting_to_send` 链表，按优先级降序排列。
-- **接收阻塞**：队列空时，任务挂到 `tasks_waiting_to_receive` 链表，同样按优先级排序。
-- **唤醒规则**：当队列状态变化（空→有数据、满→有空位）时，**唤醒等待链表中优先级最高的任务**。
-- **超时处理**：LinRTOS 使用**双列表延时队列**解决 32-bit tick 回绕问题。超时唤醒后，任务返回 `RTOS_ERR_TIMEOUT`。
-
-> ⚠️ **重要**：LinRTOS 通过 `wakeup_reason`（1=正常唤醒，2=超时唤醒）区分唤醒原因，**不会**出现"正常唤醒误报 timeout"的 bug。
-
-### 2.3 ISR 安全版本
-
-中断中禁止阻塞，因此提供 `_from_isr` 变体：
-
-- 不阻塞，队列满/空时直接返回 `RTOS_ERR_RESOURCE`。
-- 通过 `pxHigherPrioTaskWoken` 输出指针告诉调用者：是否唤醒了比当前被中断任务更高优先级的任务。
-- ISR 退出前，调用方应根据 `pxHigherPrioTaskWoken` 决定是否触发 `portYIELD_FROM_ISR()` 进行上下文切换。
+| 🏷️ 上层概念 | 📏 `length` | 📐 `item_size` | 📦 数据拷贝 | 🏷️ `queue_type` | ⚡ 额外行为 |
+|------------|------------|---------------|-----------|----------------|-----------|
+| 📨 消息队列    | N | sizeof(T) | ✅ 有 | `BASE`      | — |
+| 🚦 二进制信号量 | 1 | 0 | ❌ 无 | `BINARY`    | give 时 count≤1 |
+| 🔢 计数信号量  | N | 0 | ❌ 无 | `COUNTING`  | give 时 count≤N |
+| 🔐 互斥锁      | 1 | 0 | ❌ 无 | `MUTEX`     | 所有权 + 优先级继承 |
+| 🔁 递归互斥锁  | 1 | 0 | ❌ 无 | `RECURSIVE` | 所有权 + 递归计数 + 优先级继承 |
 
 ---
 
-## 3. 数据结构
+## 2. 🧬 数据结构
 
 ```c
 struct rtos_queue {
-    uint8_t *buffer;            // 数据缓冲区起始（item_size==0 时指向自身）
-    uint8_t *buffer_end;        // 缓冲区末尾（越界，不访问）
-    uint8_t *write_to;          // 下一次尾部写入位置
-    uint8_t *read_from;         // 逻辑上前一个元素的位置
+    /* 🌀 环形缓冲区（item_size > 0 时使用） */
+    uint8_t *buffer;            // 📍 缓冲区起始地址
+    uint8_t *buffer_end;        // 🚫 缓冲区末尾（越界，不访问）
+    uint8_t *write_to;          // ✍️ 下一次尾部写入位置
+    uint8_t *read_from;         // 👁️ 逻辑上前一个元素的位置
 
-    uint32_t length;            // 队列容量（最大元素个数）
-    uint32_t item_size;         // 单个元素字节数；0=无数据队列
-    uint32_t messages_waiting;  // 当前元素数 / 信号量 count
+    /* 📊 状态 */
+    uint32_t length;            // 📏 队列容量（最大元素个数）
+    uint32_t item_size;         // 📐 单个元素字节数；0 = 无数据
+    uint32_t messages_waiting;  // 🔢 当前元素数 / 信号量 count
 
-    struct rtos_list_node tasks_waiting_to_send;    // 发送阻塞链表
-    struct rtos_list_node tasks_waiting_to_receive; // 接收阻塞链表
+    /* 🚦 阻塞链表（按优先级降序排列） */
+    struct rtos_list_node tasks_waiting_to_send;     // 📤 队列满时阻塞的发送者
+    struct rtos_list_node tasks_waiting_to_receive;  // 📥 队列空时阻塞的接收者
 
-    uint8_t queue_type;         // 队列类型标记（预留）
+    /* 🏷️ 语义标记 */
+    uint8_t queue_type;
+
+    /* 🔐 互斥锁专用字段 */
+    struct rtos_tcb *mutex_holder;   // 👤 当前持有者；NULL = 🆓 无持有者
+    uint32_t recursive_count;        // 🔢 递归计数（仅 RECURSIVE 类型）
+    uint32_t original_priority;      // ⏮️ 被提升前的优先级；0xFFFFFFFF = 未被提升
 };
 ```
 
-- **零堆依赖**：用户静态分配 `struct rtos_queue` 和 `buffer`，不需要 `malloc`。
-- **环形缓冲区**：采用 FreeRTOS 风格的指针回绕，配合分段 `memcpy`（kfifo 风格），**不依赖长度是 2 的幂**。
+### ✨ 关键特性
+
+- 🪨 **零堆依赖** — 所有内存由用户静态分配，无需 `malloc`
+- 🔄 **环形缓冲区** — 采用指针回绕而非 2 的幂取模，长度任意
+- ✂️ **分段 memcpy** — 参考 kfifo 风格，正确处理跨缓冲区边界的拷贝
+- ⚡ **阻塞链表按优先级排序** — 唤醒时直接取链表头即可得到最高优先级等待者
 
 ---
 
-## 4. API 参考
+## 3. 📨 消息队列 API
 
-### 4.1 生命周期
-
-#### `rtos_queue_init`
+### 3.1 🏗️ 创建与删除
 
 ```c
-rtos_err_t rtos_queue_init(struct rtos_queue *queue, void *buffer,
-                           uint32_t length, uint32_t item_size);
-```
+rtos_err_t rtos_queue_init(struct rtos_queue *queue,
+                           void *buffer,
+                           uint32_t length,
+                           uint32_t item_size);
 
-**功能**：初始化队列。
-
-**参数**：
-- `queue` —— 用户静态分配的队列结构体。
-- `buffer` —— 数据缓冲区。`item_size == 0` 时可传 `NULL`。
-- `length` —— 队列容量（最大元素个数），必须 `>= 1`。
-- `item_size` —— 单个元素字节数。传 `0` 表示无数据队列（信号量模式）。
-
-**返回值**：
-- `RTOS_OK` —— 成功
-- `RTOS_ERR_PARAM` —— 参数非法（`queue == NULL`、`length == 0`、或 `item_size > 0 且 buffer == NULL`）
-
-**示例**：
-
-```c
-struct rtos_queue q;
-uint8_t buf[10 * sizeof(uint32_t)];
-rtos_queue_init(&q, buf, 10, sizeof(uint32_t));  // 消息队列
-
-struct rtos_queue sem;
-rtos_queue_init(&sem, NULL, 1, 0);               // 二进制信号量
-```
-
----
-
-#### `rtos_queue_delete`
-
-```c
 void rtos_queue_delete(struct rtos_queue *queue);
 ```
 
-**功能**：删除队列。
+| 参数 | 说明 |
+|------|------|
+| `queue` | 🎯 用户静态分配的 `struct rtos_queue` |
+| `buffer` | 🗂️ 数据缓冲区，大小 ≥ `length × item_size`；`item_size == 0` 时可传 `NULL` |
+| `length` | 📏 队列容量（最大元素个数），必须 ≥ 1 |
+| `item_size` | 📐 单个元素字节数；传 `0` 表示无数据队列 |
 
-**注意**：
-- 用户自行释放 `buffer` 和 `queue` 结构体内存。
-- 删除前必须确保**没有任务阻塞在该队列上**，否则触发断言。
+📤 **返回值**：`RTOS_OK` ✅ / `RTOS_ERR_PARAM` ❌
 
----
+📝 **示例**：
+```c
+struct rtos_queue q;
+uint8_t buf[10 * sizeof(uint32_t)];
+rtos_queue_init(&q, buf, 10, sizeof(uint32_t));  // 📨 10 个 uint32_t 的消息队列
+```
 
-### 4.2 任务上下文发送
+> ⚠️ **注意**：`rtos_queue_delete` 会断言检查两个阻塞链表必须为空。删除前请确保没有任务阻塞在队列上。
 
-#### `rtos_queue_generic_send`
+### 3.2 ✍️ 三种发送方式
 
+```c
+typedef enum {
+    RTOS_QUEUE_SEND_BACK      = 0,  // 📨 尾部追加（FIFO）
+    RTOS_QUEUE_SEND_FRONT     = 1,  // ⏩ 头部插入（插队）
+    RTOS_QUEUE_SEND_OVERWRITE = 2,  // ♻️ 覆盖写入（仅 length == 1 时合法）
+} rtos_queue_send_pos_t;
+```
+
+| ✍️ 方式 | 📍 写入位置 | ⏸️ 阻塞行为 | 🎯 适用场景 |
+|---------|-----------|-----------|-----------|
+| `SEND_BACK` | 📨 队尾 | 队列满时阻塞 | 常规 FIFO 队列 |
+| `SEND_FRONT` | ⏩ 队首 | 队列满时阻塞 | 🔴 紧急消息插队 |
+| `SEND_OVERWRITE` | ♻️ 覆盖唯一元素 | 永不阻塞 | 📬 单槽 Mailbox（只保留最新值） |
+
+🔧 **底层函数**：
 ```c
 rtos_err_t rtos_queue_generic_send(struct rtos_queue *queue,
                                    const void *item,
@@ -156,330 +132,270 @@ rtos_err_t rtos_queue_generic_send(struct rtos_queue *queue,
                                    rtos_queue_send_pos_t pos);
 ```
 
-**功能**：统一发送入口，支持阻塞。
-
-**参数**：
-- `queue` —— 目标队列
-- `item` —— 待发送数据指针。`item_size == 0` 时可传 `NULL`。
-- `timeout` —— 阻塞超时（ticks）。`RTOS_DONT_WAIT` = 不阻塞；`RTOS_WAIT_FOREVER` = 永久阻塞。
-- `pos` —— 发送位置：`RTOS_QUEUE_SEND_BACK` / `RTOS_QUEUE_SEND_FRONT` / `RTOS_QUEUE_SEND_OVERWRITE`
-
-**返回值**：
-- `RTOS_OK` —— 发送成功
-- `RTOS_ERR_RESOURCE` —— 队列满且 `timeout == RTOS_DONT_WAIT`
-- `RTOS_ERR_TIMEOUT` —— 阻塞超时
-
-**行为**：
-- 若队列有空间（或 `pos == OVERWRITE`），立即写入，然后唤醒 `tasks_waiting_to_receive` 中优先级最高的任务。
-- 若队列满且允许阻塞，任务挂起到 `tasks_waiting_to_send`，等待被接收方唤醒或超时。
-
----
-
-#### `rtos_queue_send` —— 尾部追加（便捷封装）
-
+🍬 **便捷封装**（零成本 inline）：
 ```c
-static inline rtos_err_t rtos_queue_send(struct rtos_queue *queue,
-                                         const void *item,
-                                         uint32_t timeout)
-{
-    return rtos_queue_generic_send(queue, item, timeout, RTOS_QUEUE_SEND_BACK);
-}
+rtos_queue_send(&q, &data, RTOS_WAIT_FOREVER);         // 📨 FIFO 发送
+rtos_queue_send_to_front(&q, &data, RTOS_WAIT_FOREVER); // ⏩ 插队发送
+rtos_queue_overwrite(&q, &data);                        // ♻️ 覆盖写入 (不阻塞)
 ```
 
-**用法**：最常见的 FIFO 队列发送。
-
-```c
-uint32_t data = 42;
-rtos_err_t e = rtos_queue_send(&q, &data, RTOS_WAIT_FOREVER);
-```
-
----
-
-#### `rtos_queue_send_to_front` —— 头部插队
-
-```c
-static inline rtos_err_t rtos_queue_send_to_front(struct rtos_queue *queue,
-                                                  const void *item,
-                                                  uint32_t timeout)
-{
-    return rtos_queue_generic_send(queue, item, timeout, RTOS_QUEUE_SEND_FRONT);
-}
-```
-
-**用法**：紧急消息优先被接收。
-
-```c
-uint32_t urgent = 0xFF;
-rtos_queue_send_to_front(&q, &urgent, RTOS_WAIT_FOREVER);
-```
-
----
-
-#### `rtos_queue_overwrite` —— 覆盖写入
-
-```c
-static inline rtos_err_t rtos_queue_overwrite(struct rtos_queue *queue,
-                                              const void *item)
-{
-    return rtos_queue_generic_send(queue, item, RTOS_DONT_WAIT,
-                                   RTOS_QUEUE_SEND_OVERWRITE);
-}
-```
-
-**用法**：单槽 Mailbox，总是覆盖旧值。**要求 `queue->length == 1`**，否则断言失败。
-
-```c
-struct rtos_queue mailbox;
-uint8_t buf[sizeof(uint32_t)];
-rtos_queue_init(&mailbox, buf, 1, sizeof(uint32_t));
-
-uint32_t latest = 100;
-rtos_queue_overwrite(&mailbox, &latest);  // 总是成功，不阻塞
-```
-
----
-
-### 4.3 任务上下文接收
-
-#### `rtos_queue_generic_recv`
+### 3.3 📥 接收
 
 ```c
 rtos_err_t rtos_queue_generic_recv(struct rtos_queue *queue,
                                    void *buffer,
                                    uint32_t timeout,
                                    bool peek);
+
+// 🍬 便捷封装
+rtos_queue_recv(&q, &data, RTOS_WAIT_FOREVER);  // 📥 正常接收
+rtos_queue_peek(&q, &data, RTOS_DONT_WAIT);      // 👁️ 只看不取
 ```
 
-**功能**：统一接收入口，支持阻塞和 peek。
+- 👁️ `peek == true` — 读取队首元素但**不移除**，队列状态不变
+- 📥 `peek == false` — 正常取出，`messages_waiting--`，`read_from` 前移
 
-**参数**：
-- `queue` —— 目标队列
-- `buffer` —— 接收缓冲区。`item_size == 0` 时可传 `NULL`。
-- `timeout` —— 阻塞超时
-- `peek` —— `true` = 只看不取（不修改队列状态）；`false` = 正常取出
-
-**返回值**：同 `rtos_queue_generic_send`。
-
-**行为**：
-- 若队列有数据，立即读取，然后唤醒 `tasks_waiting_to_send` 中优先级最高的任务。
-- 若队列空且允许阻塞，任务挂起到 `tasks_waiting_to_receive`。
-
----
-
-#### `rtos_queue_recv` —— 正常取出
+### 3.4 📊 状态查询
 
 ```c
-static inline rtos_err_t rtos_queue_recv(struct rtos_queue *queue,
-                                         void *buffer,
-                                         uint32_t timeout)
-{
-    return rtos_queue_generic_recv(queue, buffer, timeout, false);
-}
+rtos_queue_messages_waiting(&q)   // 🔢 当前元素数
+rtos_queue_spaces_available(&q)   // 📏 剩余空间
+rtos_queue_is_empty(&q)           // 🕳️ 是否为空
+rtos_queue_is_full(&q)            // 🈵 是否已满
 ```
 
-**用法**：标准接收。
+> ⚠️ 这些函数**无锁、无临界区**。多任务并发时仅为快照 📸，不应依赖其精确性做决策。
 
-```c
-uint32_t v;
-rtos_err_t e = rtos_queue_recv(&q, &v, RTOS_WAIT_FOREVER);
-if (e == RTOS_OK) {
-    // 使用 v
-}
-```
-
----
-
-#### `rtos_queue_peek` —— 只看不取
-
-```c
-static inline rtos_err_t rtos_queue_peek(struct rtos_queue *queue,
-                                         void *buffer,
-                                         uint32_t timeout)
-{
-    return rtos_queue_generic_recv(queue, buffer, timeout, true);
-}
-```
-
-**用法**：预览队首元素，不移动 `read_from` 指针，队列状态不变。
-
-```c
-uint32_t preview;
-if (rtos_queue_peek(&q, &preview, RTOS_DONT_WAIT) == RTOS_OK) {
-    // preview 是队首值，但队列中该元素仍在
-}
-```
-
----
-
-### 4.4 ISR 安全版本
-
-#### `rtos_queue_generic_send_from_isr`
+### 3.5 ⚡ ISR 安全版本
 
 ```c
 rtos_err_t rtos_queue_generic_send_from_isr(struct rtos_queue *queue,
                                             const void *item,
                                             rtos_queue_send_pos_t pos,
                                             bool *pxHigherPrioTaskWoken);
-```
 
-**功能**：ISR 中发送，不阻塞。
-
-**参数**：
-- `pxHigherPrioTaskWoken` —— 出参。若 `*pxHigherPrioTaskWoken == true`，表示唤醒了比当前被中断任务更高优先级的任务，ISR 退出前应考虑触发 `portYIELD_FROM_ISR()`。
-
-**返回值**：
-- `RTOS_OK` —— 发送成功
-- `RTOS_ERR_RESOURCE` —— 队列满（ISR 中不能阻塞）
-
-**注意**：该函数内部会调用 `rtos_port_is_in_isr()` 断言，确保只能在 ISR 上下文中调用。
-
----
-
-#### `rtos_queue_generic_recv_from_isr`
-
-```c
 rtos_err_t rtos_queue_generic_recv_from_isr(struct rtos_queue *queue,
                                             void *buffer,
                                             bool *pxHigherPrioTaskWoken);
 ```
 
-**功能**：ISR 中接收，不阻塞。
+- 🚫 不阻塞，队列满/空时直接返回 `RTOS_ERR_RESOURCE`
+- 🔔 `pxHigherPrioTaskWoken` — 出参，若为 `true` 表示唤醒了更高优先级的任务，ISR 退出前需触发一次调度
+- 🛡️ 函数内部断言 `rtos_port_is_in_isr()`，**只能从 ISR 中调用**
 
-**返回值**：
-- `RTOS_OK` —— 接收成功
-- `RTOS_ERR_RESOURCE` —— 队列空（ISR 中不能阻塞）
-
----
-
-**ISR 使用示例**：
-
+⚡ **ISR 完整示例**：
 ```c
 void TIM2_IRQHandler(void)
 {
     bool hpw = false;
     uint32_t adc_val = ADC1->DR;
-
     rtos_queue_generic_send_from_isr(&adc_queue, &adc_val,
                                      RTOS_QUEUE_SEND_BACK, &hpw);
-
-    // 如果唤醒了更高优先级的任务，在 ISR 末尾触发调度
-    portYIELD_FROM_ISR(hpw);
+    portYIELD_FROM_ISR(hpw);  // 🔄 如有更高优先级任务被唤醒，触发调度
 }
 ```
 
 ---
 
-### 4.5 状态查询
+## 4. 🚦 信号量 API
+
+> 🍬 信号量是无数据队列的语法糖。`item_size == 0`，不拷贝任何数据，仅操作 `messages_waiting`。
+
+### 4.1 🚦 二进制信号量
 
 ```c
-static inline uint32_t rtos_queue_messages_waiting(struct rtos_queue *queue)
-{
-    return queue->messages_waiting;
-}
-
-static inline uint32_t rtos_queue_spaces_available(struct rtos_queue *queue)
-{
-    return queue->length - queue->messages_waiting;
-}
-
-static inline bool rtos_queue_is_empty(struct rtos_queue *queue)
-{
-    return queue->messages_waiting == 0;
-}
-
-static inline bool rtos_queue_is_full(struct rtos_queue *queue)
-{
-    return queue->messages_waiting >= queue->length;
-}
+rtos_err_t rtos_semaphore_init_binary(struct rtos_queue *sem);
 ```
 
-**注意**：这些查询函数**无锁、无临界区**，适合快速判断。但由于没有原子保护，在多任务/ISR 并发场景下，返回值仅代表"某一瞬间"的快照。
+🔧 内部等价于 `rtos_queue_init(sem, NULL, 1, 0)`，初始 count = **0**（🕳️ 空状态，需要 give 后才能 take）。
 
----
+```c
+rtos_semaphore_take(&sem, RTOS_WAIT_FOREVER);   // 🔻 P 操作，-1，可阻塞
+rtos_semaphore_give(&sem);                      // 🔺 V 操作，+1（上限为 1）
+```
 
-## 5. 阻塞与超时机制详解
+> 💡 **典型场景**：任务间同步 —— 一个任务等待另一个任务的信号。
 
-### 5.1 双列表延时队列
+### 4.2 🔢 计数信号量
 
-LinRTOS 使用两个延时链表解决 32-bit tick 回绕问题：
+```c
+rtos_err_t rtos_semaphore_init_counting(struct rtos_queue *sem,
+                                        uint32_t max_count,
+                                        uint32_t initial);
+```
 
-- `px_delayed_task_list`：存放 `wake_tick >= current_tick` 的任务（无符号比较）
-- `px_overflow_delayed_task_list`：存放 `wake_tick < current_tick` 的任务
-
-当 `tick_count` 回绕到 0 时，两个列表指针 swap。这样 tick handler 中只需要遍历当前列表，遇到 `wake_tick > current_tick` 即可 `break`，**无需遍历全部任务**。
-
-### 5.2 唤醒原因
-
-TCB 中新增 `wakeup_reason` 字段：
-
-- `0` —— 无
-- `1` —— 正常唤醒（被 `prv_wake_highest_from_event_list` 唤醒）
-- `2` —— 超时唤醒（被 tick handler 从 delay_list 移除）
-
-`send` / `recv` 被唤醒后检查 `wakeup_reason == 2` 才返回 `RTOS_ERR_TIMEOUT`，**彻底杜绝了"正常唤醒被误报为超时"的 bug**。
-
----
-
-## 6. 从队列到信号量/互斥锁——映射关系
-
-虽然信号量和互斥锁有独立的包装 API（后续文档介绍），但它们的底层就是统一队列。
-
-### 6.1 二进制信号量
+🔑 管理有限资源的访问，`give` 时 count ≤ max_count，超过上限返回 `RTOS_ERR_RESOURCE`。
 
 ```c
 struct rtos_queue sem;
-rtos_queue_init(&sem, NULL, 1, 0);
-
-//  give（释放）
-rtos_queue_send(&sem, NULL, RTOS_DONT_WAIT);
-
-//  take（获取）
-rtos_queue_recv(&sem, NULL, RTOS_WAIT_FOREVER);
+rtos_semaphore_init_counting(&sem, 10, 5);  // 🎫 最多 10 个资源，初始 5 个可用
 ```
 
-`messages_waiting` 只能是 0 或 1，天然表示"可用/不可用"。
+> 💡 **典型场景**：资源池管理 —— 如 10 个 DMA 通道，初始 5 个空闲。
 
-### 6.2 计数信号量
+### 4.3 ⚡ ISR 安全版本
 
 ```c
-struct rtos_queue sem;
-rtos_queue_init(&sem, NULL, 10, 0);
-
-//  give N 次
-for (int i = 0; i < 5; i++)
-    rtos_queue_send(&sem, NULL, RTOS_DONT_WAIT);
-
-//  messages_waiting == 5，还可 take 5 次
+rtos_semaphore_give_from_isr(&sem, &hpw);   // 🔺 ISR 中释放
+rtos_semaphore_take_from_isr(&sem, &hpw);   // 🔻 ISR 中获取
 ```
-
-### 6.3 互斥锁
-
-互斥锁在二进制信号量的基础上，增加了**所有权记录**和**优先级继承**逻辑（后续实现）。但底层队列仍是 `length=1, item_size=0`。
-
-### 6.4 递归互斥锁
-
-在互斥锁的基础上，增加**同任务递归计数**（后续实现）。
 
 ---
 
-## 7. 完整使用示例
+## 5. 🔐 互斥锁 API
 
-### 7.1 消息队列——生产者-消费者
+互斥锁在二进制信号量的基础上增加了三个关键特性：
+
+- 👤 **所有权** — `mutex_holder` 记录持有者 TCB，非持有者不能释放
+- 📈 **优先级继承** — 防止优先级反转 🌀
+- 🔁 **递归计数** — 同一任务可多次获取（仅递归互斥锁）
+
+### 5.1 🔐 普通互斥锁
 
 ```c
-#include "linRTOS.h"
-#include "rtos_queue.h"
+rtos_err_t rtos_mutex_init(struct rtos_queue *mutex);
+rtos_err_t rtos_mutex_take(struct rtos_queue *mutex, uint32_t timeout);
+rtos_err_t rtos_mutex_give(struct rtos_queue *mutex);
+```
 
+#### 👤 所有权规则
+
+- 🔒 只有持有者才能 `give`，否则返回 `RTOS_ERR_STATE` ❌
+- ✅ `take` 成功后当前任务成为持有者
+- 🔓 `give` 后若没有等待者 → `mutex_holder = NULL`，`messages_waiting = 1`（🆓 可用状态）
+
+#### 📈 优先级继承机制
+
+```
+  ┌──────────┐                  ┌──────────┐
+  │ High Task│ (prio=5)         │ Low Task │ (prio=2)
+  │ 尝试 take │ ───阻塞────────→ │ 持有锁    │
+  │ 等待锁   │                  │ 被提升到 5 │  ← 内核自动提升
+  └──────────┘                  └──────────┘
+```
+
+- 🔍 当高优先级任务阻塞在互斥锁上时，内核**自动将持有者的优先级提升**到与阻塞者相同
+- 🔓 `give` 时**自动恢复**原始优先级
+- ⚠️ 只在等待者优先级 **>** 持有者优先级时才触发继承
+
+### 5.2 🔁 递归互斥锁
+
+```c
+rtos_err_t rtos_mutex_init_recursive(struct rtos_queue *mutex);
+rtos_err_t rtos_mutex_take_recursive(struct rtos_queue *mutex, uint32_t timeout);
+rtos_err_t rtos_mutex_give_recursive(struct rtos_queue *mutex);
+```
+
+#### 🆚 与普通互斥锁的区别
+
+| 🔐 普通互斥锁 | 🔁 递归互斥锁 |
+|-------------|-------------|
+| 同一任务 take 第二次 → 💀 **死锁** | 同一任务 take 第二次 → ✅ **recursive_count++** |
+| give 即释放 | 只有 `recursive_count` 归零才真正释放 |
+| — | 非持有者 give → `RTOS_ERR_STATE` ❌ |
+
+> 💡 **典型场景**：递归函数中需要获取同一把锁，或者多个嵌套函数各自需要锁定同一资源。
+
+### 5.3 🔍 查询
+
+```c
+rtos_task_handle_t rtos_mutex_get_holder(struct rtos_queue *mutex);
+```
+
+👤 返回当前持有者句柄；无持有者或类型不匹配时返回 `NULL`。
+
+---
+
+## 6. ⏱️ 阻塞与超时机制
+
+### 6.1 ⏱️ 超时常量
+
+```c
+#define RTOS_DONT_WAIT      0U            // ⚡ 不阻塞，立即返回
+#define RTOS_WAIT_FOREVER   0xFFFFFFFFU   // ♾️ 永久阻塞，直到被唤醒
+```
+
+### 6.2 🔄 阻塞流程
+
+```
+  send() 队列满                    recv() 队列空
+       │                               │
+       ▼                               ▼
+  ┌─────────────┐               ┌─────────────┐
+  │ 📤 挂入发送   │               │ 📥 挂入接收   │
+  │  等待链表    │               │  等待链表    │
+  │ (按优先级↓)  │               │ (按优先级↓)  │
+  └──────┬──────┘               └──────┬──────┘
+         │                             │
+         │    队列状态变化时唤醒          │
+         │    (满→有空位 / 空→有数据)    │
+         │                             │
+         └──────────┬──────────────────┘
+                    ▼
+         ┌─────────────────┐
+         │ 🔔 唤醒链表头部    │
+         │   (最高优先级任务) │
+         └─────────────────┘
+```
+
+1. 📤 `send` 操作 → 队列满 → 任务挂入 `tasks_waiting_to_send`（按优先级降序 🔽）
+2. 📥 `recv` 操作 → 队列空 → 任务挂入 `tasks_waiting_to_receive`（按优先级降序 🔽）
+3. 🔔 队列状态变化时 → 唤醒对应链表**头部**（最高优先级）任务
+4. ⏰ 若设置了超时 → 任务**同时**挂入 tick 延时队列
+
+### 6.3 🏷️ 唤醒原因
+
+TCB 中 `wakeup_reason` 字段精确区分唤醒原因：
+
+| 值 | 🏷️ 含义 | 📍 来源 |
+|---|--------|--------|
+| 0 | 🆕 初始状态 | — |
+| 1 | ✅ 正常唤醒 | 被 `prv_wake_highest_from_event_list` 唤醒 |
+| 2 | ⏰ 超时唤醒 | 被 tick handler 从 delay_list 移除 |
+
+> 🎯 此机制**彻底解决**了"正常唤醒被误报为超时"的经典 bug：任务被唤醒后检查 `wakeup_reason == 2` 才返回 `RTOS_ERR_TIMEOUT`。
+
+### 6.4 🔄 双列表延时队列
+
+LinRTOS 使用两个延时链表解决 **32-bit tick 溢出回绕** 🌀：
+
+```
+  tick_count 递增 →
+  ┌──────────────────────────────────────────┐
+  │  px_delayed_task_list (主队列)             │
+  │  wake_tick >= current_tick               │
+  └──────────────────────────┬───────────────┘
+                             │
+              tick_count 溢出归零 (0xFFFFFFFF → 0)
+                             │
+                             ▼
+  ┌──────────────────────────┴───────────────┐
+  │  px_overflow_delayed_task_list (溢出队列)  │
+  │  wake_tick < current_tick (跨回绕边界)     │
+  └──────────────────────────────────────────┘
+```
+
+💡 当 `tick_count` 溢出归零时，两个链表指针 swap 🔄，tick handler 只需遍历当前活跃列表，无需遍历全部任务。
+
+---
+
+## 7. 📚 使用示例
+
+### 7.1 📨 生产者-消费者（消息队列）
+
+```c
 static struct rtos_queue s_q;
-static uint8_t s_buf[10 * sizeof(uint32_t)];
+static uint8_t s_buf[10 * sizeof(uint32_t)];  // 🗂️ 10 个元素的缓冲区
+static uint32_t s_pstk[128];                   // 📤 生产者栈
+static uint32_t s_cstk[128];                   // 📥 消费者栈
 
 static void producer(void *p)
 {
     (void)p;
     for (uint32_t i = 0; i < 100; i++) {
-        rtos_queue_send(&s_q, &i, RTOS_WAIT_FOREVER);
+        rtos_queue_send(&s_q, &i, RTOS_WAIT_FOREVER);  // 📨 阻塞发送
     }
-    rtos_task_delete(NULL);
+    rtos_task_delete(NULL);  // 🗑️ 生产完毕，自删
 }
 
 static void consumer(void *p)
@@ -487,70 +403,104 @@ static void consumer(void *p)
     (void)p;
     for (uint32_t i = 0; i < 100; i++) {
         uint32_t v;
-        rtos_queue_recv(&s_q, &v, RTOS_WAIT_FOREVER);
-        // 处理 v...
+        rtos_queue_recv(&s_q, &v, RTOS_WAIT_FOREVER);  // 📥 阻塞接收
+        process(v);  // 🔧 处理数据
     }
-    rtos_task_delete(NULL);
+    rtos_task_delete(NULL);  // 🗑️ 消费完毕，自删
 }
 
 void app_entry_task(void *param)
 {
     (void)param;
-    rtos_queue_init(&s_q, s_buf, 10, sizeof(uint32_t));
-
-    rtos_task_create(producer, "prod", s_pstk, 128, NULL, 2, NULL);
-    rtos_task_create(consumer, "cons", s_cstk, 128, NULL, 5, NULL);
-
+    rtos_queue_init(&s_q, s_buf, 10, sizeof(uint32_t));  // 🏗️ 初始化
+    rtos_task_create(producer, "prod", s_pstk, 128, NULL, 2, NULL);  // 📤 prio=2
+    rtos_task_create(consumer, "cons", s_cstk, 128, NULL, 5, NULL);  // 📥 prio=5
     rtos_task_delete(NULL);
 }
 ```
 
-### 7.2 单槽 Mailbox——覆盖写入
+### 7.2 📬 单槽 Mailbox（覆盖写入）
 
 ```c
 static struct rtos_queue mailbox;
 static uint8_t m_buf[sizeof(uint32_t)];
 
-void sensor_task(void *p)
-{
+void init(void) {
+    rtos_queue_init(&mailbox, m_buf, 1, sizeof(uint32_t));  // 🏗️ length=1
+}
+
+void sensor_task(void *p) {
     (void)p;
     while (1) {
-        uint32_t latest = read_sensor();
-        rtos_queue_overwrite(&mailbox, &latest);  // 总是保留最新值
+        uint32_t latest = read_sensor();        // 📡 读取传感器
+        rtos_queue_overwrite(&mailbox, &latest); // ♻️ 总是保存最新值，永不阻塞
         rtos_task_delay(10);
     }
 }
 
-void display_task(void *p)
-{
+void display_task(void *p) {
     (void)p;
     while (1) {
         uint32_t v;
-        rtos_queue_recv(&mailbox, &v, RTOS_WAIT_FOREVER);
-        show_value(v);
+        rtos_queue_recv(&mailbox, &v, RTOS_WAIT_FOREVER);  // 📥 等待新数据
+        show_value(v);  // 🖥️ 显示
     }
 }
 ```
 
-### 7.3 紧急消息插队
+### 7.3 🤝 任务同步（二进制信号量）
 
 ```c
-void normal_task(void *p)
-{
-    (void)p;
-    uint32_t data = 1;
-    rtos_queue_send(&q, &data, RTOS_WAIT_FOREVER);   // 排到队尾
+static struct rtos_queue s_sync;  // 🚦 同步信号量
+
+void init(void) {
+    rtos_semaphore_init_binary(&s_sync);  // 🏗️ 初始 count=0（空）
 }
 
-void urgent_task(void *p)
-{
+void slow_task(void *p) {
     (void)p;
-    uint32_t alert = 0xFF;
-    rtos_queue_send_to_front(&q, &alert, RTOS_WAIT_FOREVER);  // 插队到队首
+    do_heavy_work();                        // ⏳ 耗时操作
+    rtos_semaphore_give(&s_sync);           // 🔔 通知：工作完成！
+    rtos_task_delete(NULL);
+}
+
+void waiting_task(void *p) {
+    (void)p;
+    rtos_semaphore_take(&s_sync, RTOS_WAIT_FOREVER);  // ⏸️ 等待通知
+    process_result();  // 🎉 工作已完成，开始处理结果
+    rtos_task_delete(NULL);
 }
 ```
 
-### 7.4 ISR 向任务发送数据
+### 7.4 🔒 共享资源保护（互斥锁 + 优先级继承）
+
+```c
+static struct rtos_queue s_mutex;
+static volatile uint32_t s_shared;  // 🔒 受保护的共享变量
+
+void init(void) {
+    rtos_mutex_init(&s_mutex);  // 🏗️ 初始为可用状态
+}
+
+void high_prio_task(void *p) {      // 🔺 优先级 = 5
+    (void)p;
+    rtos_mutex_take(&s_mutex, RTOS_WAIT_FOREVER);  // 🔒 获取锁
+    s_shared++;                                     // ✍️ 临界区
+    rtos_mutex_give(&s_mutex);                      // 🔓 释放锁
+}
+
+void low_prio_task(void *p) {       // 🔻 优先级 = 2
+    (void)p;
+    rtos_mutex_take(&s_mutex, RTOS_WAIT_FOREVER);  // 🔒 获取锁
+    rtos_task_delay(50);                            // ⏳ 模拟耗时临界区
+    s_shared++;                                     // ✍️
+    rtos_mutex_give(&s_mutex);                      // 🔓 释放锁
+    // 💡 若 high_prio 在此期间阻塞等待，low 的优先级会自动提升到 5
+    // 🔓 give 时自动恢复为 2
+}
+```
+
+### 7.5 ⚡ ISR 向任务发送数据
 
 ```c
 static struct rtos_queue adc_queue;
@@ -559,61 +509,48 @@ static uint8_t adc_buf[8 * sizeof(uint16_t)];
 void ADC_IRQHandler(void)
 {
     bool hpw = false;
-    uint16_t val = ADC1->DR;
-
+    uint16_t val = ADC1->DR;                          // 📡 读取 ADC
     rtos_queue_generic_send_from_isr(&adc_queue, &val,
-                                     RTOS_QUEUE_SEND_BACK, &hpw);
-
-    portYIELD_FROM_ISR(hpw);
+                                     RTOS_QUEUE_SEND_BACK, &hpw);  // 📤 ISR 中发送
+    portYIELD_FROM_ISR(hpw);  // 🔄 如有高优先级任务被唤醒，立即调度
 }
 
 void processing_task(void *p)
 {
     (void)p;
-    rtos_queue_init(&adc_queue, adc_buf, 8, sizeof(uint16_t));
-
     while (1) {
         uint16_t sample;
-        rtos_queue_recv(&adc_queue, &sample, RTOS_WAIT_FOREVER);
-        process_sample(sample);
+        rtos_queue_recv(&adc_queue, &sample, RTOS_WAIT_FOREVER);  // 📥 阻塞等待
+        process_sample(sample);  // 🔬 处理采样数据
     }
 }
 ```
 
 ---
 
-## 8. 注意事项
+## 8. ⚠️ 注意事项
 
-1. **overwrite 限制**：`rtos_queue_overwrite()` 要求 `queue->length == 1`，否则触发断言。这是 FreeRTOS 兼容行为。
-
-2. **零堆依赖**：`rtos_queue_init()` 不会分配内存，队列结构体和缓冲区必须由用户静态分配或自行管理。
-
-3. **删除前清空阻塞任务**：`rtos_queue_delete()` 会断言检查两个阻塞链表必须为空。如果强行删除仍有任务等待的队列，会导致未定义行为。
-
-4. **ISR 版本不阻塞**：`send_from_isr` / `recv_from_isr` 在队列满/空时返回 `RTOS_ERR_RESOURCE`，不会挂起任务。
-
-5. **查询函数非原子**：`rtos_queue_messages_waiting()` 等查询函数无临界区保护，返回值仅为快照。若需精确判断，应使用带超时的 `send` / `recv`。
-
-6. **item_size == 0 时 item/buffer 可传 NULL**：信号量模式下不搬数据，参数可省略。
-
----
-
-## 9. 与 FreeRTOS 队列的差异速查
-
-| 特性 | LinRTOS | FreeRTOS |
-|------|---------|----------|
-| 统一实现 | ✅ Queue = 队列+信号量+互斥锁 | ✅ `QueueDefinition` + `queueQUEUE_TYPE_*` |
-| 阻塞链表排序 | 按优先级降序 | 按优先级降序 |
-| tick 回绕处理 | 双列表 swap | 双列表 swap |
-| overwrite 限制 | `length == 1` | `length == 1` |
-| 唤醒原因区分 | `wakeup_reason` 字段 | `xTaskRemoveFromEventList` + `xTaskCheckForTimeOut` |
-| 数据拷贝 | 分段 memcpy（kfifo 风格） | 分段 memcpy |
+| # | ⚠️ 注意点 | 💡 说明 |
+|---|---------|--------|
+| 1 | ♻️ **overwrite 限制** | `rtos_queue_overwrite()` 要求 `length == 1`，否则触发断言 💥 |
+| 2 | 🪨 **零堆依赖** | 所有内存由用户静态分配，`rtos_queue_init` 不调用 `malloc` |
+| 3 | 🧹 **删除前清空阻塞任务** | `rtos_queue_delete` 断言阻塞链表为空，强制删除 → 💀 未定义行为 |
+| 4 | ⚡ **ISR 版本不阻塞** | `send_from_isr` / `recv_from_isr` 满/空时返回 `RTOS_ERR_RESOURCE` |
+| 5 | 📸 **查询函数非原子** | `messages_waiting` 等查询无临界区保护，仅为瞬时快照 |
+| 6 | 🆓 **item_size == 0 时参数可省** | 信号量/互斥锁模式下 `item` 和 `buffer` 可传 `NULL` |
+| 7 | 🔄 **互斥锁 holder 立即转移** | `give` 中若有待唤醒任务，`holder` 直接设为被唤醒者，而非先置 `NULL` |
+| 8 | 📈 **继承方向** | 优先级继承只在等待者优先级 **>** 持有者优先级时触发，低等高等不继承 |
 
 ---
 
-## 10. 相关文件
+## 9. 🗺️ 相关文件
 
-- `include/rtos_queue.h` —— 头文件与 inline 封装
-- `src/queue.c` —— 核心实现
-- `include/kernel.h` —— TCB、延时链表定义
-- `include/types.h` —— 错误码与常量
+| 📁 文件 | 📄 内容 |
+|---------|--------|
+| `include/rtos_queue.h` | 🧬 队列结构体 + 全部 inline 封装 |
+| `include/rtos_semaphore.h` | 🚦 信号量 API |
+| `include/rtos_mutex.h` | 🔐 互斥锁 API |
+| `include/types.h` | 🏷️ 错误码与超时常量 |
+| `src/queue.c` | ⚙️ 队列核心实现 |
+| `src/mutex.c` | ⚙️ 互斥锁实现 |
+| `src/semaphore.c` | ⚙️ 信号量实现 |
