@@ -387,11 +387,13 @@ void rtos_task_set_priority(rtos_task_handle_t task, uint32_t priority)
     }
 
     RTOS_ENTER_CRITICAL();
-    tcb->priority = priority;
 
     if (tcb->state == RTOS_TASK_READY || tcb->state == RTOS_TASK_RUNNING) {
         rtos_task_unready(tcb);
+        tcb->priority = priority;
         rtos_task_ready(tcb);
+    } else {
+        tcb->priority = priority;
     }
 
     RTOS_EXIT_CRITICAL();
