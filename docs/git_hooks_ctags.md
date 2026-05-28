@@ -17,7 +17,6 @@
 ```bash
 which ctags
 ```
-
 如果没安装：
 
 ```bash
