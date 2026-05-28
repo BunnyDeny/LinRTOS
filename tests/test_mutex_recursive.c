@@ -11,7 +11,6 @@ static volatile bool s_t_done = false;
 static void other_task(void *p)
 {
     (void)p;
-    /* 另一任务尝试获取已被递归持有的互斥锁 → 阻塞 */
     rtos_err_t e = rtos_mutex_take(&s_mtx, 100);
     RTOS_ASSERT(e == RTOS_OK);
     sys_printk("[MUTEX-REC] other task got mutex\r\n");
@@ -19,6 +18,15 @@ static void other_task(void *p)
     e = rtos_mutex_give(&s_mtx);
     RTOS_ASSERT(e == RTOS_OK);
     s_t_done = true;
+    rtos_task_delete(NULL);
+}
+
+static volatile rtos_err_t s_bad_err = RTOS_OK;
+
+static void bad_giver(void *p)
+{
+    (void)p;
+    s_bad_err = rtos_mutex_give_recursive(&s_mtx);
     rtos_task_delete(NULL);
 }
 
@@ -66,10 +74,10 @@ void app_entry_task(void *param)
 
     /* 5. 非持有者 give_recursive → ERR_STATE */
     rtos_mutex_take_recursive(&s_mtx, RTOS_DONT_WAIT);
-    s_t_done = false;
-    rtos_task_create(other_task, "bad", s_tstk, 128, NULL, 3, NULL);
-    while (!s_t_done) rtos_task_delay(10);
-    /* other_task 中 give 会失败，但这里不方便检查返回值 */
+    rtos_task_create(bad_giver, "bad", s_tstk, 128, NULL, 3, NULL);
+    rtos_task_delay(50);
+    RTOS_ASSERT(s_bad_err == RTOS_ERR_STATE);
+    sys_printk("[MUTEX-REC] bad giver rejected OK\r\n");
     rtos_mutex_give_recursive(&s_mtx);
 
     rtos_mutex_delete(&s_mtx);
