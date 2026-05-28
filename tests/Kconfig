@@ -131,6 +131,12 @@ config TEST_MUTEX_PRIORITY
 	  Verify priority boosting when high-priority task
 	  blocks on mutex held by low-priority task.
 
+config TEST_ALL
+	bool "All-in-one test suite (single flash)"
+	help
+	  Run all core tests sequentially from a single binary.
+	  Results are printed to serial.  No per-test re-flash needed.
+
 endchoice
 
 endif

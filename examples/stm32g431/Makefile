@@ -98,6 +98,7 @@ Core/Src/stm32g4xx_hal_msp.c \
 ../../tests/test_mutex_basic.c \
 ../../tests/test_mutex_recursive.c \
 ../../tests/test_mutex_priority.c \
+../../tests/test_all.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_pwr_ex.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart_ex.c \
