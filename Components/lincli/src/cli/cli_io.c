@@ -370,8 +370,13 @@ int cli_printk(const char *fmt, ...)
 	extern int cli_in_exception(void);
 	int _in_exc = cli_in_exception();
 
-	if (in_interactive && !_in_exc)
-		cli_out_push((_u8 *)"\r\033[K", 4);
+	if (in_interactive) {
+		/* In exception context skip \033[K but keep \r:
+		 * without \r the output would append after whatever
+		 * the CLI prompt left on the current line. */
+		cli_out_push((_u8 *)(_in_exc ? "\r" : "\r\033[K"),
+			     _in_exc ? 1 : 4);
+	}
 
 	const char *_pre = prefix_gen(pre);
 	int status = printk_format_and_send(_pre, len);
