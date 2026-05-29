@@ -17,10 +17,6 @@
 #include "rtos_semaphore.h"
 #include "test_case.h"
 
-#ifdef WORKQUEUE
-#include "workqueue.h"
-#endif
-
 #define COLOR_GREEN  "\033[32m"
 #define COLOR_RED    "\033[31m"
 #define COLOR_RESET  "\033[0m"
@@ -114,13 +110,6 @@ void SysTick_Handler(void)
     rtos_tick_handler();
 
     if (s_suite_done) return;
-
-#ifdef WORKQUEUE
-    if (system_wq) {
-        workqueue_tick_handler(system_wq, rtos_get_tick_count());
-        workqueue_run_one(system_wq);
-    }
-#endif
 
     static uint32_t isr_cnt = 0;
     isr_cnt++;

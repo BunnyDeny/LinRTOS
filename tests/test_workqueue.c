@@ -1,6 +1,10 @@
 /*
  * Test: Workqueue scheduling (conditional: WORKQUEUE)
- * 验证: schedule_work 立即执行, schedule_delayed_work 延迟到期执行
+ *
+ * 验证: schedule_work 近即时执行, schedule_delayed_work 延迟到期执行,
+ *       ISR 中部分行打印的正确性.
+ *
+ * workqueue 由 scheduler 任务驱动(任务上下文), jiffies 由 SysTick 递增.
  */
 #include "linRTOS.h"
 #include "cli_io.h"
@@ -23,51 +27,61 @@ static bool test_workqueue(void)
     static struct delayed_work wq_del;
     static volatile bool imm_done = false;
     static volatile bool del_done = false;
+    static volatile uint32_t imm_tick = 0;
+    static volatile uint32_t del_tick = 0;
 
     imm_done = false; del_done = false;
+    imm_tick = 0; del_tick = 0;
 
     void imm_handler(struct work_struct *ws) {
         (void)ws;
         imm_done = true;
-        /* ISR split-line test: two calls form one logical line.
-         * \r\n (not \r\033[K) in ISR: starts fresh line, no overwrite. */
-        sys_printk("  [WQ] immediate");
-        sys_printk(" at tick=%lu\r\n",
-                   (unsigned long)rtos_get_tick_count());
+        imm_tick = rtos_get_tick_count();
+        /* ISR split-line: two calls form one logical line
+         * (this runs in scheduler task context, not ISR) */
+        sys_printk("  [WQ] split");
+        sys_printk(" line\r\n");
     }
 
     void del_handler(struct work_struct *ws) {
         (void)ws;
         del_done = true;
-        sys_printk("  [WQ] delayed at tick=%lu\r\n",
-                   (unsigned long)rtos_get_tick_count());
+        del_tick = rtos_get_tick_count();
     }
 
     INIT_WORK(&wq_imm, imm_handler);
     INIT_DELAYED_WORK(&wq_del, del_handler);
 
+    uint32_t sched_tick = rtos_get_tick_count();
+
     schedule_work(&wq_imm);
     schedule_delayed_work(&wq_del, 300);
 
-    /* Wait for System Workqueue to process both */
-    uint32_t start = rtos_get_tick_count();
-    uint32_t del_complete_tick = 0;
+    /* Wait for both to complete */
     while (!imm_done || !del_done) {
-        if ((int32_t)(rtos_get_tick_count() - start) > 2000) break;
+        if ((int32_t)(rtos_get_tick_count() - sched_tick) > 2000) break;
         rtos_task_delay(20);
-        if (del_done && del_complete_tick == 0) {
-            del_complete_tick = rtos_get_tick_count();
-        }
     }
 
     TEST_ASSERT(imm_done, "immediate work should have run");
     TEST_ASSERT(del_done, "delayed work should have run");
 
-    /* task-context test: sys_printk without trailing \n.
-     * Without the guard, cmd_line_redraw() would append the
-     * CLI prompt on the same line after "no-newline". */
-    sys_printk("  [WQ] no-newline test");
-    sys_printk("  [WQ] normal line\r\n");
+    {
+        int32_t dt = (int32_t)(imm_tick - sched_tick);
+        sys_printk("  immediate after %ld ticks\r\n", (long)dt);
+        TEST_ASSERT(dt >= 0 && dt < 100,
+                    "immediate work should fire < 100 ticks");
+    }
+    {
+        int32_t dt = (int32_t)(del_tick - sched_tick);
+        sys_printk("  delayed after %ld ticks (expected ~300)\r\n", (long)dt);
+        TEST_ASSERT(dt >= 250 && dt <= 400,
+                    "delayed work should fire in 250-400 ticks");
+    }
+
+    /* task-context partial-line test */
+    sys_printk("  [WQ] no-newline");
+    sys_printk(" test\r\n");
 
     return true;
 }

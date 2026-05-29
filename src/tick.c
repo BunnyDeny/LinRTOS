@@ -75,6 +75,10 @@ void rtos_tick_handler(void)
 
     RTOS_EXIT_CRITICAL();
 
+    /* jiffies 由 SysTick 驱动，供 workqueue / scheduler 使用 */
+    extern volatile unsigned long jiffies;
+    ++jiffies;
+
     /* 尝试调度（由 rtos_sched 内部决定是否需要上下文切换） */
     rtos_sched();
 }
