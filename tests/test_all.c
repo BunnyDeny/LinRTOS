@@ -87,13 +87,22 @@ static uint8_t  s_isr_q_buf[5 * sizeof(uint32_t)];
 static volatile uint32_t s_isr_q_sent  = 0;
 static volatile bool     s_isr_q_done  = false;
 static volatile bool     s_isr_q_woken = false;
-static uint32_t s_isr_q_cstk[128];
 
 static struct rtos_queue s_isr_sem;
 static volatile uint32_t s_isr_sem_sent  = 0;
 static volatile bool     s_isr_sem_done  = false;
 static volatile bool     s_isr_sem_woken = false;
-static uint32_t s_isr_sem_cstk[128];
+
+/* ---- 共享任务栈池（测试串行运行，可安全复用）---- */
+static uint32_t s_stk0[128];
+static uint32_t s_stk1[128];
+static uint32_t s_stk2[128];
+static uint32_t __attribute__((unused)) s_stk3[128];
+#ifdef ARCH_ENABLE_FPU
+static uint32_t s_fpu_stk0[200];
+static uint32_t s_fpu_stk1[200];
+static uint32_t s_fpu_stk2[128];
+#endif
 
 void SysTick_Handler(void)
 {
@@ -134,7 +143,6 @@ void SysTick_Handler(void)
  * ============================================================ */
 static bool test_state(void)
 {
-    static uint32_t query_stk[128], helper_stk[128];
     static rtos_task_handle_t h_helper;
 
     sys_printk("[%s]\r\n", __func__);
@@ -162,8 +170,8 @@ static bool test_state(void)
         for (;;) rtos_task_delay(10000);
     }
 
-    rtos_task_create(task_query,  "query",  query_stk,  128, NULL, 2, NULL);
-    rtos_task_create(task_helper, "helper", helper_stk, 128, NULL, 1, &h_helper);
+    rtos_task_create(task_query,  "query",  s_stk0,  128, NULL, 2, NULL);
+    rtos_task_create(task_helper, "helper", s_stk1, 128, NULL, 1, &h_helper);
     rtos_task_delay(600);
     return true;
 }
@@ -174,7 +182,6 @@ static bool test_state(void)
 static bool test_mutex_basic(void)
 {
     static struct rtos_queue mtx;
-    static uint32_t a_stk[128], b_stk[128], bad_stk[128];
     static volatile uint32_t s_shared, a_done, b_done;
     static volatile rtos_err_t bad_err;
 
@@ -215,8 +222,8 @@ static bool test_mutex_basic(void)
     }
 
     rtos_mutex_init(&mtx);
-    rtos_task_create(task_a, "a", a_stk, 128, NULL, 3, NULL);
-    rtos_task_create(task_b, "b", b_stk, 128, NULL, 4, NULL);
+    rtos_task_create(task_a, "a", s_stk0, 128, NULL, 3, NULL);
+    rtos_task_create(task_b, "b", s_stk1, 128, NULL, 4, NULL);
     if (!wait_for(&a_done, 1, 2000)) return false;
     if (!wait_for(&b_done, 1, 2000)) return false;
 
@@ -226,7 +233,7 @@ static bool test_mutex_basic(void)
     TEST_ASSERT(e == RTOS_OK, "retake mutex");
     TEST_ASSERT(rtos_mutex_get_holder(&mtx) == rtos_task_get_current(), "holder check");
 
-    rtos_task_create(bad_giver, "bad", bad_stk, 128, NULL, 5, NULL);
+    rtos_task_create(bad_giver, "bad", s_stk2, 128, NULL, 5, NULL);
     rtos_task_delay(50);
     TEST_ASSERT(bad_err == RTOS_ERR_STATE, "non-holder give rejected");
 
@@ -241,7 +248,6 @@ static bool test_mutex_basic(void)
 static bool test_mutex_recursive(void)
 {
     static struct rtos_queue mtx;
-    static uint32_t other_stk[128], bad_stk[128];
     static volatile bool t_done;
     static volatile rtos_err_t bad_err;
 
@@ -282,7 +288,7 @@ static bool test_mutex_recursive(void)
     TEST_ASSERT(e == RTOS_OK, "give_recursive 2");
     TEST_ASSERT(mtx.recursive_count == 1, "count=1");
 
-    rtos_task_create(other_task, "other", other_stk, 128, NULL, 5, NULL);
+    rtos_task_create(other_task, "other", s_stk0, 128, NULL, 5, NULL);
     rtos_task_delay(50);
     TEST_ASSERT(!t_done, "other should block");
 
@@ -292,7 +298,7 @@ static bool test_mutex_recursive(void)
     if (!wait_for_bool(&t_done, true, 500)) return false;
 
     rtos_mutex_take_recursive(&mtx, RTOS_DONT_WAIT);
-    rtos_task_create(bad_giver, "bad", bad_stk, 128, NULL, 3, NULL);
+    rtos_task_create(bad_giver, "bad", s_stk2, 128, NULL, 3, NULL);
     rtos_task_delay(50);
     TEST_ASSERT(bad_err == RTOS_ERR_STATE, "non-holder give_recursive rejected");
     rtos_mutex_give_recursive(&mtx);
@@ -307,7 +313,6 @@ static bool test_mutex_recursive(void)
 static bool test_mutex_priority(void)
 {
     static struct rtos_queue mtx;
-    static uint32_t low_stk[128], high_stk[128];
     static volatile uint32_t l_prio, l_prio_after;
     static volatile bool high_done;
 
@@ -337,8 +342,8 @@ static bool test_mutex_priority(void)
     }
 
     rtos_mutex_init(&mtx);
-    rtos_task_create(low_task,  "low",  low_stk,  128, NULL, 2, NULL);
-    rtos_task_create(high_task, "high", high_stk, 128, NULL, 5, NULL);
+    rtos_task_create(low_task,  "low",  s_stk0,  128, NULL, 2, NULL);
+    rtos_task_create(high_task, "high", s_stk1, 128, NULL, 5, NULL);
     if (!wait_for_bool(&high_done, true, 2000)) return false;
 
     TEST_ASSERT(l_prio == 5, "priority boosted to 5");
@@ -354,7 +359,6 @@ static bool test_mutex_priority(void)
 static bool test_semaphore_binary(void)
 {
     static struct rtos_queue sem;
-    static uint32_t p_stk[128], c_stk[128];
     static volatile uint32_t pcnt, ccnt;
 
     sys_printk("[%s]\r\n", __func__);
@@ -380,8 +384,8 @@ static bool test_semaphore_binary(void)
     }
 
     rtos_semaphore_init_binary(&sem);
-    rtos_task_create(consumer, "cons", c_stk, 128, NULL, 5, NULL);
-    rtos_task_create(producer, "prod", p_stk, 128, NULL, 2, NULL);
+    rtos_task_create(consumer, "cons", s_stk1, 128, NULL, 5, NULL);
+    rtos_task_create(producer, "prod", s_stk0, 128, NULL, 2, NULL);
     if (!wait_for(&pcnt, 5, 2000)) return false;
     if (!wait_for(&ccnt, 5, 2000)) return false;
 
@@ -399,7 +403,6 @@ static bool test_semaphore_binary(void)
 static bool test_semaphore_counting(void)
 {
     static struct rtos_queue sem;
-    static uint32_t p1_stk[128], p2_stk[128], c_stk[128];
     static volatile uint32_t pcnt, ccnt;
 
     sys_printk("[%s]\r\n", __func__);
@@ -435,9 +438,9 @@ static bool test_semaphore_counting(void)
     }
 
     rtos_semaphore_init_counting(&sem, 5, 0);
-    rtos_task_create(consumer, "cons", c_stk, 128, NULL, 5, NULL);
-    rtos_task_create(p1, "p1", p1_stk, 128, NULL, 2, NULL);
-    rtos_task_create(p2, "p2", p2_stk, 128, NULL, 3, NULL);
+    rtos_task_create(consumer, "cons", s_stk2, 128, NULL, 5, NULL);
+    rtos_task_create(p1, "p1", s_stk0, 128, NULL, 2, NULL);
+    rtos_task_create(p2, "p2", s_stk1, 128, NULL, 3, NULL);
     if (!wait_for(&pcnt, 6, 2000)) return false;
     if (!wait_for(&ccnt, 6, 2000)) return false;
 
@@ -456,7 +459,6 @@ static bool test_queue_basic(void)
     static struct rtos_queue q, q1;
     static uint8_t buf[5 * sizeof(uint32_t)];
     static uint8_t buf1[1 * sizeof(uint32_t)];
-    static uint32_t p_stk[128], c_stk[128];
     static volatile uint32_t pcnt, ccnt;
 
     sys_printk("[%s]\r\n", __func__);
@@ -489,8 +491,8 @@ static bool test_queue_basic(void)
     TEST_ASSERT(rtos_queue_spaces_available(&q) == 5, "space=5");
     TEST_ASSERT(rtos_queue_is_full(&q) == false, "not full");
 
-    rtos_task_create(producer, "prod", p_stk, 128, NULL, 2, NULL);
-    rtos_task_create(consumer, "cons", c_stk, 128, NULL, 5, NULL);
+    rtos_task_create(producer, "prod", s_stk0, 128, NULL, 2, NULL);
+    rtos_task_create(consumer, "cons", s_stk1, 128, NULL, 5, NULL);
     if (!wait_for(&pcnt, 5, 2000)) return false;
     if (!wait_for(&ccnt, 5, 2000)) return false;
     TEST_ASSERT(rtos_queue_is_empty(&q), "empty after drain");
@@ -540,7 +542,6 @@ static bool test_queue_blocking(void)
 {
     static struct rtos_queue q;
     static uint8_t buf[3 * sizeof(uint32_t)];
-    static uint32_t p_stk[128], c_stk[128];
     static volatile uint32_t pcnt, ccnt;
 
     sys_printk("[%s]\r\n", __func__);
@@ -567,11 +568,11 @@ static bool test_queue_blocking(void)
 
     rtos_queue_init(&q, buf, 3, sizeof(uint32_t));
 
-    rtos_task_create(producer, "prod", p_stk, 128, NULL, 2, NULL);
+    rtos_task_create(producer, "prod", s_stk0, 128, NULL, 2, NULL);
     rtos_task_delay(50);
     TEST_ASSERT(pcnt == 3, "filled 3, blocked");
 
-    rtos_task_create(consumer, "cons", c_stk, 128, NULL, 5, NULL);
+    rtos_task_create(consumer, "cons", s_stk1, 128, NULL, 5, NULL);
     if (!wait_for(&pcnt, 8, 2000)) return false;
     if (!wait_for(&ccnt, 8, 2000)) return false;
     TEST_ASSERT(pcnt == 8 && ccnt == 8, "all 8");
@@ -601,7 +602,6 @@ static bool test_queue_blocking(void)
  * ============================================================ */
 static bool test_suspend_resume(void)
 {
-    static uint32_t t_stk[128];
     static volatile bool ran = false;
     static rtos_task_handle_t h_task;
 
@@ -615,7 +615,7 @@ static bool test_suspend_resume(void)
         rtos_task_delete(NULL);
     }
 
-    rtos_task_create(task_func, "t", t_stk, 128, NULL, 2, &h_task);
+    rtos_task_create(task_func, "t", s_stk0, 128, NULL, 2, &h_task);
     rtos_task_suspend(h_task);
     rtos_task_delay(200);
     TEST_ASSERT(!ran, "suspended, should not run");
@@ -632,7 +632,6 @@ static bool test_suspend_resume(void)
  * ============================================================ */
 static bool test_self_suspend(void)
 {
-    static uint32_t self_stk[128], ctrl_stk[128];
     static volatile uint32_t sscnt = 0;
     static volatile bool ctrl_done = false;
     static rtos_task_handle_t h_self;
@@ -674,8 +673,8 @@ static bool test_self_suspend(void)
         rtos_task_delete(NULL);
     }
 
-    rtos_task_create(self_task, "self", self_stk, 128, NULL, 1, &h_self);
-    rtos_task_create(ctrl_task, "ctrl", ctrl_stk, 128, NULL, 3, NULL);
+    rtos_task_create(self_task, "self", s_stk0, 128, NULL, 1, &h_self);
+    rtos_task_create(ctrl_task, "ctrl", s_stk1, 128, NULL, 3, NULL);
     rtos_task_delay(500);
 
     TEST_ASSERT(ctrl_done, "ctrl completed");
@@ -689,7 +688,6 @@ static bool test_self_suspend(void)
  * ============================================================ */
 static bool test_priority(void)
 {
-    static uint32_t lo_stk[128], hi_stk[128];
     static volatile bool lo_ran = false;
 
     sys_printk("[%s]\r\n", __func__);
@@ -708,8 +706,8 @@ static bool test_priority(void)
         rtos_task_delete(NULL);
     }
 
-    rtos_task_create(lo_task, "lo", lo_stk, 128, NULL, 1, NULL);
-    rtos_task_create(hi_task, "hi", hi_stk, 128, NULL, 3, NULL);
+    rtos_task_create(lo_task, "lo", s_stk0, 128, NULL, 1, NULL);
+    rtos_task_create(hi_task, "hi", s_stk1, 128, NULL, 3, NULL);
 
     rtos_task_delay(200);
     TEST_ASSERT(lo_ran, "lo ran after priority boost");
@@ -722,7 +720,6 @@ static bool test_priority(void)
  * ============================================================ */
 static bool test_selfdelete(void)
 {
-    static uint32_t t_stk[128];
     static volatile bool created = false;
 
     sys_printk("[%s]\r\n", __func__);
@@ -734,12 +731,12 @@ static bool test_selfdelete(void)
         rtos_task_delete(NULL);
     }
 
-    rtos_task_create(self_deleter, "sd", t_stk, 128, NULL, 2, NULL);
+    rtos_task_create(self_deleter, "sd", s_stk0, 128, NULL, 2, NULL);
     rtos_task_delay(50);
 
     rtos_task_handle_t h;
     rtos_err_t e = rtos_task_create(self_deleter, "sd",
-                                     t_stk, 128, NULL, 2, &h);
+                                     s_stk0, 128, NULL, 2, &h);
     TEST_ASSERT(e == RTOS_OK, "TCB recycled");
     rtos_task_delay(50);
     rtos_task_delete(h);
@@ -753,7 +750,6 @@ static bool test_selfdelete(void)
  * ============================================================ */
 static bool test_sched_lock(void)
 {
-    static uint32_t hi_stk[128];
     static volatile bool hi_ran = false;
 
     sys_printk("[%s]\r\n", __func__);
@@ -767,7 +763,7 @@ static bool test_sched_lock(void)
     /* ---- 单级锁 ---- */
     hi_ran = false;
     rtos_sched_lock();
-    rtos_task_create(hi_task, "hi", hi_stk, 128, NULL, 5, NULL);
+    rtos_task_create(hi_task, "hi", s_stk0, 128, NULL, 5, NULL);
     rtos_task_delay(100);
     TEST_ASSERT(!hi_ran, "single lock prevented preemption");
 
@@ -780,7 +776,7 @@ static bool test_sched_lock(void)
     rtos_sched_lock();
     rtos_sched_lock();
     rtos_sched_lock();
-    rtos_task_create(hi_task, "hi2", hi_stk, 128, NULL, 5, NULL);
+    rtos_task_create(hi_task, "hi2", s_stk0, 128, NULL, 5, NULL);
     rtos_task_delay(50);
     TEST_ASSERT(!hi_ran, "nested 3: no preempt after lock3");
 
@@ -804,7 +800,6 @@ static bool test_sched_lock(void)
  * ============================================================ */
 static bool test_yield(void)
 {
-    static uint32_t a_stk[128], b_stk[128];
     static volatile uint32_t seq = 0;
 
     sys_printk("[%s]\r\n", __func__);
@@ -823,8 +818,8 @@ static bool test_yield(void)
         rtos_task_delete(NULL);
     }
 
-    rtos_task_create(task_a, "a", a_stk, 128, NULL, 2, NULL);
-    rtos_task_create(task_b, "b", b_stk, 128, NULL, 2, NULL);
+    rtos_task_create(task_a, "a", s_stk0, 128, NULL, 2, NULL);
+    rtos_task_create(task_b, "b", s_stk1, 128, NULL, 2, NULL);
     rtos_task_delay(100);
 
     return true;
@@ -835,7 +830,6 @@ static bool test_yield(void)
  * ============================================================ */
 static bool test_delay_until(void)
 {
-    static uint32_t t_stk[128];
     static volatile uint32_t du_count = 0;
 
     sys_printk("[%s]\r\n", __func__);
@@ -851,7 +845,7 @@ static bool test_delay_until(void)
         rtos_task_delete(NULL);
     }
 
-    rtos_task_create(periodic, "per", t_stk, 128, NULL, 3, NULL);
+    rtos_task_create(periodic, "per", s_stk0, 128, NULL, 3, NULL);
     if (!wait_for(&du_count, 5, 2000)) return false;
     TEST_ASSERT(du_count == 5, "delay_until 5 cycles");
 
@@ -863,7 +857,6 @@ static bool test_delay_until(void)
  * ============================================================ */
 static bool test_stack_free(void)
 {
-    static uint32_t t_stk[128];
     static volatile uint32_t free_words = 0;
 
     sys_printk("[%s]\r\n", __func__);
@@ -876,7 +869,7 @@ static bool test_stack_free(void)
         rtos_task_delete(NULL);
     }
 
-    rtos_task_create(task_func, "t", t_stk, 128, NULL, 2, NULL);
+    rtos_task_create(task_func, "t", s_stk0, 128, NULL, 2, NULL);
     rtos_task_delay(100);
     TEST_ASSERT(free_words > 0, "stack free > 0");
     TEST_ASSERT(free_words <= 128, "stack free <= 128");
@@ -888,7 +881,6 @@ static bool test_stack_free(void)
  * ============================================================ */
 static bool test_abort_delay(void)
 {
-    static uint32_t t_stk[128];
     static rtos_task_handle_t h_task;
 
     sys_printk("[%s]\r\n", __func__);
@@ -900,7 +892,7 @@ static bool test_abort_delay(void)
         rtos_task_delete(NULL);
     }
 
-    rtos_task_create(sleeper, "sleep", t_stk, 128, NULL, 2, &h_task);
+    rtos_task_create(sleeper, "sleep", s_stk0, 128, NULL, 2, &h_task);
     rtos_task_delay(50);
     TEST_ASSERT(rtos_scheduler_is_running(), "scheduler running");
 
@@ -942,7 +934,7 @@ static bool test_queue_isr(void)
     }
 
     rtos_queue_init(&s_isr_q, s_isr_q_buf, 5, sizeof(uint32_t));
-    rtos_task_create(consumer, "qcons", s_isr_q_cstk, 128, NULL, 5, NULL);
+    rtos_task_create(consumer, "qcons", s_stk0, 128, NULL, 5, NULL);
 
     s_isr_queue_active = true;
     while (!cons_done) {
@@ -987,7 +979,7 @@ static bool test_semaphore_isr(void)
     }
 
     rtos_semaphore_init_binary(&s_isr_sem);
-    rtos_task_create(consumer, "scons", s_isr_sem_cstk, 128, NULL, 5, NULL);
+    rtos_task_create(consumer, "scons", s_stk0, 128, NULL, 5, NULL);
 
     s_isr_sem_active = true;
     while (!cons_done) {
@@ -1010,7 +1002,6 @@ static bool test_semaphore_isr(void)
 #ifdef ARCH_ENABLE_FPU
 static bool test_fpu(void)
 {
-    static uint32_t fp_a_stk[320], fp_b_stk[320], intr_stk[128];
     static volatile uint32_t fp_cycles = 0;
     static volatile float fp_result_a = 0.0f;
     static volatile float fp_result_b = 0.0f;
@@ -1053,9 +1044,9 @@ static bool test_fpu(void)
         rtos_task_delete(NULL);
     }
 
-    rtos_task_create(fp_task_a, "fpa", fp_a_stk, 320, NULL, 2, NULL);
-    rtos_task_create(fp_task_b, "fpb", fp_b_stk, 320, NULL, 1, NULL);
-    rtos_task_create(intruder,  "intr", intr_stk, 128, NULL, 3, NULL);
+    rtos_task_create(fp_task_a, "fpa", s_fpu_stk0, 200, NULL, 2, NULL);
+    rtos_task_create(fp_task_b, "fpb", s_fpu_stk1, 200, NULL, 1, NULL);
+    rtos_task_create(intruder,  "intr", s_fpu_stk2, 128, NULL, 3, NULL);
 
     rtos_task_delay(600);
 
