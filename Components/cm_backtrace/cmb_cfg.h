@@ -16,14 +16,7 @@
 
 #include <stdarg.h>
 
-/*
- * Print line: append \r\n and call sys_printk ONCE.
- *
- * DO NOT split a logical line across multiple sys_printk / cmb_print calls.
- * In interactive CLI mode the prompt redraw can interleave between calls,
- * and the next line's \r\033[K will erase the content before it's visible.
- * One line = one atomic output, always.
- */
+/* Print line: append \r\n to format and call sys_printk once (atomic). */
 #define cmb_println cmb_println
 static inline int cmb_println(const char *fmt, ...)
 {
