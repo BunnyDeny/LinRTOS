@@ -184,11 +184,9 @@ void app_entry_task(void *param)
         rtos_task_delay(50);
     }
 
-    cli_printk_batch_begin();
     sys_printk("\r\n========================================\r\n");
     sys_printk("  Results: %d / %d PASS\r\n", pass, total);
     sys_printk("========================================\r\n");
-    cli_printk_batch_end();
 
     s_suite_done = true;
     rtos_task_delete(NULL);
