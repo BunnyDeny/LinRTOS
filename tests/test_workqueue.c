@@ -37,10 +37,8 @@ static bool test_workqueue(void)
         (void)ws;
         imm_done = true;
         imm_tick = rtos_get_tick_count();
-        /* ISR split-line: two calls form one logical line
-         * (this runs in scheduler task context, not ISR) */
-        sys_printk("  [WQ] split");
-        sys_printk(" line\r\n");
+        /* workqueue runs in task context, each cli_printk is atomic */
+        sys_printk("  [WQ] immediate\r\n");
     }
 
     void del_handler(struct work_struct *ws) {
@@ -79,9 +77,8 @@ static bool test_workqueue(void)
                     "delayed work should fire in 250-400 ticks");
     }
 
-    /* task-context partial-line test */
-    sys_printk("  [WQ] no-newline");
-    sys_printk(" test\r\n");
+    /* trailing-\n guard test: no \n in format, guard adds \r\n before redraw */
+    sys_printk("  [WQ] no-newline test");
 
     return true;
 }
