@@ -297,6 +297,17 @@ void rtos_task_delay(uint32_t ticks)
     struct rtos_tcb *tcb = (struct rtos_tcb *)rtos_current_tcb;
 
     RTOS_ENTER_CRITICAL();
+
+    /* 若任务已在阻塞状态（sched_lock 期间重复 delay），
+     * 先从当前延迟链表中移除，避免 delay_node 被重复插入导致链表损坏 */
+    if (tcb->state == RTOS_TASK_BLOCKED) {
+        rtos_list_remove(&tcb->delay_node);
+        if (tcb->event_list) {
+            rtos_list_remove(&tcb->event_node);
+            tcb->event_list = NULL;
+        }
+    }
+
     tcb->wake_tick = g_kernel.tick_count + ticks;
     tcb->state = RTOS_TASK_BLOCKED;
     tcb->event_list = NULL;   /* 纯延时阻塞，不在事件链表上 */
