@@ -21,6 +21,10 @@
 #include "workqueue.h"
 #endif
 
+#define COLOR_GREEN  "\033[32m"
+#define COLOR_RED    "\033[31m"
+#define COLOR_RESET  "\033[0m"
+
 #if defined(ENABLE_TEST_CASES)
 
 /* ============================================================
@@ -174,8 +178,14 @@ void app_entry_task(void *param)
     FOR_EACH_TEST_CASE(tc) {
         idx++;
         bool ok = tc->fn();
-        if (ok) pass++;
-        sys_printk("[%2d/%2d] %-22s %s\r\n", idx, total, tc->name, ok ? "PASS" : "FAIL");
+        if (ok) {
+            pass++;
+            sys_printk("[ " COLOR_GREEN "ok" COLOR_RESET " ] [%2d/%2d] %s\r\n",
+                       idx, total, tc->name);
+        } else {
+            sys_printk("[ " COLOR_RED "err" COLOR_RESET " ] [%2d/%2d] %s\r\n",
+                       idx, total, tc->name);
+        }
         rtos_task_delay(50);
     }
 
