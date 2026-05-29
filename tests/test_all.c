@@ -3,6 +3,11 @@
  *
  * 每个测试都是独立的 static bool 函数，返回 true=PASS, false=FAIL。
  * 所有断言均为软断言：失败时打印行号和原因，不会卡死 MCU。
+ *
+ * ISR 测试（queue_isr, semaphore_isr）通过统一的 SysTick_Handler
+ * 分发，使用 active flag 隔离，各测试串行运行互不干扰。
+ *
+ * FPU / CmBacktrace / Workqueue 测试通过条件编译按需启用。
  */
 
 #include "linRTOS.h"
@@ -10,9 +15,20 @@
 #include "rtos_mutex.h"
 #include "rtos_semaphore.h"
 
+#ifdef ARCH_ENABLE_FPU
+#include <math.h>
+#endif
+
+#ifdef COMPONENT_CM_BACKTRACE
+#include "cm_backtrace.h"
+#endif
+
+#ifdef WORKQUEUE
+#include "workqueue.h"
+#endif
+
 #if defined(ENABLE_TEST_CASES) && defined(TEST_ALL)
 
-/* 嵌套函数是 GCC 扩展，Clang / IAR / ARMCC 均不支持 */
 #if !defined(__GNUC__) || defined(__clang__)
 #error "test_all.c requires GCC (nested functions are a GCC extension)"
 #endif
@@ -54,6 +70,63 @@ static bool wait_for_bool(volatile bool *flag, bool expect,
         rtos_task_delay(10);
     }
     return true;
+}
+
+/* ============================================================
+ * ISR 测试共享基础设施
+ *
+ * ISR 测试共用唯一的 SysTick_Handler。每个 ISR 测试运行前
+ * 设置自己的 active flag，运行完毕后清除，保证互不干扰。
+ * ============================================================ */
+
+static volatile bool s_isr_queue_active = false;
+static volatile bool s_isr_sem_active   = false;
+
+static struct rtos_queue s_isr_q;
+static uint8_t  s_isr_q_buf[5 * sizeof(uint32_t)];
+static volatile uint32_t s_isr_q_sent  = 0;
+static volatile bool     s_isr_q_done  = false;
+static volatile bool     s_isr_q_woken = false;
+static uint32_t s_isr_q_cstk[128];
+
+static struct rtos_queue s_isr_sem;
+static volatile uint32_t s_isr_sem_sent  = 0;
+static volatile bool     s_isr_sem_done  = false;
+static volatile bool     s_isr_sem_woken = false;
+static uint32_t s_isr_sem_cstk[128];
+
+void SysTick_Handler(void)
+{
+    rtos_tick_handler();
+
+#ifdef WORKQUEUE
+    if (system_wq) {
+        workqueue_tick_handler(system_wq, rtos_get_tick_count());
+        workqueue_run_one(system_wq);
+    }
+#endif
+
+    static uint32_t isr_cnt = 0;
+    isr_cnt++;
+
+    if (s_isr_queue_active && (isr_cnt % 200 == 0) && !s_isr_q_done) {
+        uint32_t d = isr_cnt;
+        bool hp = false;
+        if (rtos_queue_generic_send_from_isr(&s_isr_q, &d,
+                                              RTOS_QUEUE_SEND_BACK,
+                                              &hp) == RTOS_OK) {
+            s_isr_q_sent++;
+            if (hp) s_isr_q_woken = true;
+        }
+    }
+
+    if (s_isr_sem_active && (isr_cnt % 200 == 0) && !s_isr_sem_done) {
+        bool hp = false;
+        if (rtos_semaphore_give_from_isr(&s_isr_sem, &hp) == RTOS_OK) {
+            s_isr_sem_sent++;
+            if (hp) s_isr_sem_woken = true;
+        }
+    }
 }
 
 /* ============================================================
@@ -154,9 +227,6 @@ static bool test_mutex_basic(void)
     TEST_ASSERT(rtos_mutex_get_holder(&mtx) == rtos_task_get_current(), "holder check");
 
     rtos_task_create(bad_giver, "bad", bad_stk, 128, NULL, 5, NULL);
-    if (!wait_for_bool((volatile bool *)&bad_err, 0, 500)) {
-        /* bad_err 被赋值为 RTOS_ERR_STATE 后 != RTOS_OK(0), 此等待用另一种方式 */
-    }
     rtos_task_delay(50);
     TEST_ASSERT(bad_err == RTOS_ERR_STATE, "non-holder give rejected");
 
@@ -379,7 +449,7 @@ static bool test_semaphore_counting(void)
 }
 
 /* ============================================================
- * 8. 队列基本 API
+ * 7. 队列基本 API
  * ============================================================ */
 static bool test_queue_basic(void)
 {
@@ -417,6 +487,7 @@ static bool test_queue_basic(void)
     TEST_ASSERT(e == RTOS_OK, "init");
     TEST_ASSERT(rtos_queue_is_empty(&q), "empty");
     TEST_ASSERT(rtos_queue_spaces_available(&q) == 5, "space=5");
+    TEST_ASSERT(rtos_queue_is_full(&q) == false, "not full");
 
     rtos_task_create(producer, "prod", p_stk, 128, NULL, 2, NULL);
     rtos_task_create(consumer, "cons", c_stk, 128, NULL, 5, NULL);
@@ -451,6 +522,7 @@ static bool test_queue_basic(void)
 
     /* full/empty error */
     for (uint32_t i = 0; i < 5; i++) rtos_queue_send(&q, &i, RTOS_DONT_WAIT);
+    TEST_ASSERT(rtos_queue_is_full(&q), "is_full");
     e = rtos_queue_send(&q, &x, RTOS_DONT_WAIT);
     TEST_ASSERT(e == RTOS_ERR_RESOURCE, "full->ERR_RESOURCE");
     for (uint32_t i = 0; i < 5; i++) rtos_queue_recv(&q, &v, RTOS_DONT_WAIT);
@@ -462,7 +534,7 @@ static bool test_queue_basic(void)
 }
 
 /* ============================================================
- * 9. 队列阻塞与超时
+ * 8. 队列阻塞与超时
  * ============================================================ */
 static bool test_queue_blocking(void)
 {
@@ -525,7 +597,7 @@ static bool test_queue_blocking(void)
 }
 
 /* ============================================================
- * 11. 挂起/恢复
+ * 9. 挂起/恢复（外部挂起）
  * ============================================================ */
 static bool test_suspend_resume(void)
 {
@@ -556,7 +628,64 @@ static bool test_suspend_resume(void)
 }
 
 /* ============================================================
- * 12. 动态优先级
+ * 10. 自挂起 suspend(NULL)
+ * ============================================================ */
+static bool test_self_suspend(void)
+{
+    static uint32_t self_stk[128], ctrl_stk[128];
+    static volatile uint32_t sscnt = 0;
+    static volatile bool ctrl_done = false;
+    static rtos_task_handle_t h_self;
+
+    sys_printk("[%s]\r\n", __func__);
+    sscnt = 0; ctrl_done = false; h_self = NULL;
+
+    void self_task(void *p) {
+        (void)p;
+        sscnt = 1;
+        rtos_task_delay(50);
+        sscnt = 2;
+        rtos_task_suspend(NULL);
+        /* 外部恢复后继续执行 */
+        sscnt = 3;
+        rtos_task_delete(NULL);
+    }
+
+    void ctrl_task(void *p) {
+        (void)p;
+        uint32_t start = rtos_get_tick_count();
+        while (sscnt < 2) {
+            if ((int32_t)(rtos_get_tick_count() - start) > 1000) return;
+            rtos_task_delay(10);
+        }
+        /* 确认已自挂起 */
+        rtos_task_delay(50);
+        if (sscnt != 2) { ctrl_done = true; rtos_task_delete(NULL); return; }
+
+        /* 恢复 */
+        rtos_task_resume(h_self);
+
+        start = rtos_get_tick_count();
+        while (sscnt < 3) {
+            if ((int32_t)(rtos_get_tick_count() - start) > 1000) break;
+            rtos_task_delay(10);
+        }
+        ctrl_done = true;
+        rtos_task_delete(NULL);
+    }
+
+    rtos_task_create(self_task, "self", self_stk, 128, NULL, 1, &h_self);
+    rtos_task_create(ctrl_task, "ctrl", ctrl_stk, 128, NULL, 3, NULL);
+    rtos_task_delay(500);
+
+    TEST_ASSERT(ctrl_done, "ctrl completed");
+    TEST_ASSERT(sscnt >= 3, "self resumed, sscnt>=3");
+
+    return true;
+}
+
+/* ============================================================
+ * 11. 动态优先级
  * ============================================================ */
 static bool test_priority(void)
 {
@@ -575,7 +704,6 @@ static bool test_priority(void)
 
     void hi_task(void *p) {
         (void)p;
-        /* 优先级高，先运行；阻塞让 lo 运行 */
         rtos_task_delay(50);
         rtos_task_delete(NULL);
     }
@@ -590,7 +718,7 @@ static bool test_priority(void)
 }
 
 /* ============================================================
- * 13. 自删除
+ * 12. 自删除
  * ============================================================ */
 static bool test_selfdelete(void)
 {
@@ -609,7 +737,6 @@ static bool test_selfdelete(void)
     rtos_task_create(self_deleter, "sd", t_stk, 128, NULL, 2, NULL);
     rtos_task_delay(50);
 
-    /* 验证：创建同名任务确认 TCB 被回收 */
     rtos_task_handle_t h;
     rtos_err_t e = rtos_task_create(self_deleter, "sd",
                                      t_stk, 128, NULL, 2, &h);
@@ -622,7 +749,7 @@ static bool test_selfdelete(void)
 }
 
 /* ============================================================
- * 14. 调度锁
+ * 13. 调度锁（含嵌套锁）
  * ============================================================ */
 static bool test_sched_lock(void)
 {
@@ -630,7 +757,6 @@ static bool test_sched_lock(void)
     static volatile bool hi_ran = false;
 
     sys_printk("[%s]\r\n", __func__);
-    hi_ran = false;
 
     void hi_task(void *p) {
         (void)p;
@@ -638,20 +764,43 @@ static bool test_sched_lock(void)
         rtos_task_delete(NULL);
     }
 
+    /* ---- 单级锁 ---- */
+    hi_ran = false;
     rtos_sched_lock();
     rtos_task_create(hi_task, "hi", hi_stk, 128, NULL, 5, NULL);
-    rtos_task_delay(100);  /* 高优先级任务不应抢占 */
-    TEST_ASSERT(!hi_ran, "sched_lock prevented preemption");
+    rtos_task_delay(100);
+    TEST_ASSERT(!hi_ran, "single lock prevented preemption");
 
     rtos_sched_unlock();
     rtos_task_delay(50);
-    TEST_ASSERT(hi_ran, "sched_unlock allowed preemption");
+    TEST_ASSERT(hi_ran, "single unlock allowed preemption");
+
+    /* ---- 嵌套锁（3 层） ---- */
+    hi_ran = false;
+    rtos_sched_lock();
+    rtos_sched_lock();
+    rtos_sched_lock();
+    rtos_task_create(hi_task, "hi2", hi_stk, 128, NULL, 5, NULL);
+    rtos_task_delay(50);
+    TEST_ASSERT(!hi_ran, "nested 3: no preempt after lock3");
+
+    rtos_sched_unlock();  /* 3 -> 2 */
+    rtos_task_delay(50);
+    TEST_ASSERT(!hi_ran, "nested: no preempt after unlock to 2");
+
+    rtos_sched_unlock();  /* 2 -> 1 */
+    rtos_task_delay(50);
+    TEST_ASSERT(!hi_ran, "nested: no preempt after unlock to 1");
+
+    rtos_sched_unlock();  /* 1 -> 0 */
+    rtos_task_delay(50);
+    TEST_ASSERT(hi_ran, "nested: preempt after unlock to 0");
 
     return true;
 }
 
 /* ============================================================
- * 15. 任务让出
+ * 14. 任务让出
  * ============================================================ */
 static bool test_yield(void)
 {
@@ -665,7 +814,6 @@ static bool test_yield(void)
         (void)p;
         seq = 1;
         rtos_task_yield();
-        if (seq == 1) { /* B hasn't run yet, ok */ }
         rtos_task_delete(NULL);
     }
 
@@ -678,6 +826,34 @@ static bool test_yield(void)
     rtos_task_create(task_a, "a", a_stk, 128, NULL, 2, NULL);
     rtos_task_create(task_b, "b", b_stk, 128, NULL, 2, NULL);
     rtos_task_delay(100);
+
+    return true;
+}
+
+/* ============================================================
+ * 15. 绝对周期延时 delay_until
+ * ============================================================ */
+static bool test_delay_until(void)
+{
+    static uint32_t t_stk[128];
+    static volatile uint32_t du_count = 0;
+
+    sys_printk("[%s]\r\n", __func__);
+    du_count = 0;
+
+    void periodic(void *p) {
+        (void)p;
+        uint32_t prev = rtos_get_tick_count();
+        for (int i = 0; i < 5; i++) {
+            du_count++;
+            rtos_task_delay_until(&prev, 100);
+        }
+        rtos_task_delete(NULL);
+    }
+
+    rtos_task_create(periodic, "per", t_stk, 128, NULL, 3, NULL);
+    if (!wait_for(&du_count, 5, 2000)) return false;
+    TEST_ASSERT(du_count == 5, "delay_until 5 cycles");
 
     return true;
 }
@@ -739,7 +915,255 @@ static bool test_abort_delay(void)
 }
 
 /* ============================================================
- * 📊 测试运行器
+ * 18. 队列 ISR（send_from_isr → 任务消费）
+ * ============================================================ */
+static bool test_queue_isr(void)
+{
+    static volatile bool cons_done = false;
+
+    sys_printk("[%s]\r\n", __func__);
+
+    s_isr_q_sent  = 0;
+    s_isr_q_done  = false;
+    s_isr_q_woken = false;
+    cons_done     = false;
+
+    void consumer(void *p) {
+        (void)p;
+        for (uint32_t i = 0; i < 8; i++) {
+            uint32_t v;
+            if (rtos_queue_recv(&s_isr_q, &v, RTOS_WAIT_FOREVER) == RTOS_OK) {
+                sys_printk("  q-isr recv %lu\r\n", (unsigned long)v);
+            }
+        }
+        s_isr_q_done = true;
+        cons_done = true;
+        rtos_task_delete(NULL);
+    }
+
+    rtos_queue_init(&s_isr_q, s_isr_q_buf, 5, sizeof(uint32_t));
+    rtos_task_create(consumer, "qcons", s_isr_q_cstk, 128, NULL, 5, NULL);
+
+    s_isr_queue_active = true;
+    while (!cons_done) {
+        rtos_task_delay(200);
+        if (s_isr_q_sent >= 12 && !cons_done) break; /* 安全超时 */
+    }
+    s_isr_queue_active = false;
+
+    TEST_ASSERT(cons_done, "consumer received all 8");
+    TEST_ASSERT(s_isr_q_sent >= 8, "isr sent >= 8");
+    TEST_ASSERT(s_isr_q_woken, "isr woke a task");
+
+    rtos_queue_delete(&s_isr_q);
+    return true;
+}
+
+/* ============================================================
+ * 19. 信号量 ISR（give_from_isr → 任务 take）
+ * ============================================================ */
+static bool test_semaphore_isr(void)
+{
+    static volatile bool cons_done = false;
+
+    sys_printk("[%s]\r\n", __func__);
+
+    s_isr_sem_sent  = 0;
+    s_isr_sem_done  = false;
+    s_isr_sem_woken = false;
+    cons_done       = false;
+
+    void consumer(void *p) {
+        (void)p;
+        for (uint32_t i = 0; i < 5; i++) {
+            rtos_err_t e = rtos_semaphore_take(&s_isr_sem, RTOS_WAIT_FOREVER);
+            if (e == RTOS_OK) {
+                sys_printk("  sem-isr take %lu\r\n", (unsigned long)(i + 1));
+            }
+        }
+        s_isr_sem_done = true;
+        cons_done = true;
+        rtos_task_delete(NULL);
+    }
+
+    rtos_semaphore_init_binary(&s_isr_sem);
+    rtos_task_create(consumer, "scons", s_isr_sem_cstk, 128, NULL, 5, NULL);
+
+    s_isr_sem_active = true;
+    while (!cons_done) {
+        rtos_task_delay(200);
+        if (s_isr_sem_sent >= 10 && !cons_done) break;
+    }
+    s_isr_sem_active = false;
+
+    TEST_ASSERT(cons_done, "consumer received all 5");
+    TEST_ASSERT(s_isr_sem_sent >= 5, "isr sent >= 5");
+    TEST_ASSERT(s_isr_sem_woken, "isr woke a task");
+
+    rtos_semaphore_delete(&s_isr_sem);
+    return true;
+}
+
+/* ============================================================
+ * 20. FPU 上下文切换（条件：ARCH_ENABLE_FPU）
+ * ============================================================ */
+#ifdef ARCH_ENABLE_FPU
+static bool test_fpu(void)
+{
+    static uint32_t fp_a_stk[320], fp_b_stk[320], intr_stk[128];
+    static volatile uint32_t fp_cycles = 0;
+    static volatile float fp_result_a = 0.0f;
+    static volatile float fp_result_b = 0.0f;
+
+    sys_printk("[%s]\r\n", __func__);
+    fp_cycles = 0; fp_result_a = 0.0f; fp_result_b = 0.0f;
+
+    void fp_task_a(void *p) {
+        (void)p;
+        float s = 0.0f;
+        for (int i = 0; i < 10; i++) {
+            s += 0.1f;
+            float x = sinf(s);
+            fp_cycles++;
+            rtos_task_delay(20);
+        }
+        fp_result_a = s;  /* 期望 = 1.0f */
+        rtos_task_delete(NULL);
+    }
+
+    void fp_task_b(void *p) {
+        (void)p;
+        float v = 1.0f;
+        for (int i = 0; i < 10; i++) {
+            v = v * 1.5f + 0.1f;
+            fp_cycles++;
+            rtos_task_delay(25);
+        }
+        fp_result_b = v;
+        rtos_task_delete(NULL);
+    }
+
+    void intruder(void *p) {
+        (void)p;
+        for (int i = 0; i < 15; i++) {
+            volatile float x = 0.5f;
+            (void)x;
+            rtos_task_delay(15);
+        }
+        rtos_task_delete(NULL);
+    }
+
+    rtos_task_create(fp_task_a, "fpa", fp_a_stk, 320, NULL, 2, NULL);
+    rtos_task_create(fp_task_b, "fpb", fp_b_stk, 320, NULL, 1, NULL);
+    rtos_task_create(intruder,  "intr", intr_stk, 128, NULL, 3, NULL);
+
+    rtos_task_delay(600);
+
+    TEST_ASSERT(fp_cycles >= 15, "fp tasks made progress");
+
+    float diff = fp_result_a - 1.0f;
+    if (diff < 0.0f) diff = -diff;
+    TEST_ASSERT(diff < 0.01f, "fp_task_a accuracy");
+
+    return true;
+}
+#else
+static bool test_fpu(void)
+{
+    sys_printk("[%s] SKIP (no FPU)\r\n", __func__);
+    return true;
+}
+#endif
+
+/* ============================================================
+ * 21. CmBacktrace（条件：COMPONENT_CM_BACKTRACE）
+ * ============================================================ */
+#ifdef COMPONENT_CM_BACKTRACE
+static bool test_cm_backtrace(void)
+{
+    sys_printk("[%s]\r\n", __func__);
+
+    cm_backtrace_init("LinRTOS-test_all", "v1.0", "v1.0");
+    cm_backtrace_firmware_info();
+
+    uint32_t call_stack[16] = {0};
+    size_t depth;
+    uint32_t sp = cmb_get_sp();
+
+    depth = cm_backtrace_call_stack(call_stack,
+                                     sizeof(call_stack) / sizeof(call_stack[0]),
+                                     sp);
+    sys_printk("  call stack depth=%u\r\n", (unsigned)depth);
+    for (size_t i = 0; i < depth; i++) {
+        sys_printk("  [%u] 0x%08X\r\n", (unsigned)i, (unsigned)call_stack[i]);
+    }
+
+    TEST_ASSERT(depth > 0, "call stack depth > 0");
+    return true;
+}
+#else
+static bool test_cm_backtrace(void)
+{
+    sys_printk("[%s] SKIP (CmbBacktrace not enabled)\r\n", __func__);
+    return true;
+}
+#endif
+
+/* ============================================================
+ * 22. Workqueue（条件：WORKQUEUE）
+ * ============================================================ */
+#ifdef WORKQUEUE
+static bool test_workqueue(void)
+{
+    static struct work_struct wq_imm;
+    static struct delayed_work wq_del;
+    static volatile bool imm_done = false;
+    static volatile bool del_done = false;
+
+    sys_printk("[%s]\r\n", __func__);
+    imm_done = false; del_done = false;
+
+    void imm_handler(struct work_struct *ws) {
+        (void)ws;
+        imm_done = true;
+        sys_printk("  immediate work executed at tick=%lu\r\n",
+                   (unsigned long)rtos_get_tick_count());
+    }
+
+    void del_handler(struct work_struct *ws) {
+        (void)ws;
+        del_done = true;
+        sys_printk("  delayed work executed at tick=%lu\r\n",
+                   (unsigned long)rtos_get_tick_count());
+    }
+
+    INIT_WORK(&wq_imm, imm_handler);
+    INIT_DELAYED_WORK(&wq_del, del_handler);
+
+    schedule_work(&wq_imm);
+    schedule_delayed_work(&wq_del, 300);
+
+    /* 等 System Workqueue 处理 */
+    uint32_t start = rtos_get_tick_count();
+    while (!imm_done || !del_done) {
+        if ((int32_t)(rtos_get_tick_count() - start) > 2000) break;
+        rtos_task_delay(20);
+    }
+
+    TEST_ASSERT(imm_done, "immediate work ran");
+    TEST_ASSERT(del_done, "delayed work ran");
+    return true;
+}
+#else
+static bool test_workqueue(void)
+{
+    sys_printk("[%s] SKIP (Workqueue not enabled)\r\n", __func__);
+    return true;
+}
+#endif
+
+/* ============================================================
+ * 测试运行器
  * ============================================================ */
 
 void app_entry_task(void *param)
@@ -762,12 +1186,19 @@ void app_entry_task(void *param)
         {"queue_basic",        test_queue_basic},
         {"queue_blocking",     test_queue_blocking},
         {"suspend_resume",     test_suspend_resume},
+        {"self_suspend",       test_self_suspend},
         {"priority",           test_priority},
         {"selfdelete",         test_selfdelete},
         {"sched_lock",         test_sched_lock},
         {"yield",              test_yield},
+        {"delay_until",        test_delay_until},
         {"stack_free",         test_stack_free},
         {"abort_delay",        test_abort_delay},
+        {"queue_isr",          test_queue_isr},
+        {"semaphore_isr",      test_semaphore_isr},
+        {"fpu",                test_fpu},
+        {"cm_backtrace",       test_cm_backtrace},
+        {"workqueue",          test_workqueue},
     };
 
     int total = (int)(sizeof(tests) / sizeof(tests[0]));
@@ -778,7 +1209,7 @@ void app_entry_task(void *param)
         bool ok = tests[i].fn();
         if (ok) { pass++; sys_printk("PASS\r\n"); }
         else     {        sys_printk("FAIL\r\n"); }
-        rtos_task_delay(50);  /* 等一等尚未清理完的辅助任务 */
+        rtos_task_delay(50);
     }
 
     sys_printk("\r\n========================================\r\n");
