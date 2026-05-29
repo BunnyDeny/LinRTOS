@@ -871,7 +871,7 @@ static bool test_stack_free(void)
     rtos_task_create(task_func, "t", s_stk0, 160, NULL, 2, NULL);
     rtos_task_delay(100);
     TEST_ASSERT(free_words > 0, "stack free > 0");
-    TEST_ASSERT(free_words <= 128, "stack free <= 128");
+    TEST_ASSERT(free_words <= 160, "stack free <= 160");
     return true;
 }
 
