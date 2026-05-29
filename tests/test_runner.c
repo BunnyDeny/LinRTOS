@@ -134,6 +134,12 @@ void SysTick_Handler(void)
             if (hp) s_isr_sem_woken = true;
         }
     }
+
+    /* ---- ISR split-line demo (every ~2000 ticks, 2s) ---- */
+    if (isr_cnt == 2000) {
+        sys_printk("  [ISR] split");
+        sys_printk(" line demo\r\n");
+    }
 }
 
 /* ============================================================

@@ -77,8 +77,11 @@ static bool test_workqueue(void)
                     "delayed work should fire in 250-400 ticks");
     }
 
-    /* trailing-\n guard test: no \n in format, guard adds \r\n before redraw */
-    sys_printk("  [WQ] no-newline test");
+    /* batch-mode split-line: two calls form one logical line */
+    cli_printk_batch_begin();
+    sys_printk("  [WQ] batch split");
+    sys_printk(" line\r\n");
+    cli_printk_batch_end();
 
     return true;
 }

@@ -280,6 +280,7 @@ CLI_COMMAND(level, "level", "Log level",
  * ============================================================ */
 
 static char buffer[CLI_PRINTK_BUF_SIZE];
+int _cli_batch;
 
 static const char *prefix_gen(const char *level)
 {
@@ -369,13 +370,13 @@ int cli_printk(const char *fmt, ...)
 	extern int cli_in_exception(void);
 	int _in_exc = cli_in_exception();
 
-	/* ISR output: push \r\n before the FIRST call after a task
-	 * redraw (to avoid sticking to the CLI prompt), then leave
-	 * subsequent ISR calls alone so they can form partial lines. */
+	/* ISR first call after task redraw: \r to overwrite old prompt.
+	 * Task context: \r\033[K unless in batch mode. */
 	static int _isr_newline_pending;
 	if (in_interactive) {
 		if (!_in_exc) {
-			cli_out_push((_u8 *)"\r\033[K", 4);
+			if (!_cli_batch)
+				cli_out_push((_u8 *)"\r\033[K", 4);
 		} else if (_isr_newline_pending) {
 			cli_out_push((_u8 *)"\r", 1);
 		}
@@ -389,7 +390,7 @@ int cli_printk(const char *fmt, ...)
 		goto out;
 	}
 
-	if (in_interactive && !_in_exc) {
+	if (in_interactive && !_in_exc && !_cli_batch) {
 		if (len > 0 && buffer[len - 1] != '\n') {
 			cli_out_push((_u8 *)"\r\n", 2);
 			cli_out_sync();
@@ -405,6 +406,15 @@ int cli_printk(const char *fmt, ...)
 out:
 	cli_exit_critical();
 	return ret;
+}
+
+void cli_printk_batch_begin(void) { ++_cli_batch; }
+
+void cli_printk_batch_end(void)
+{
+	if (_cli_batch > 0) --_cli_batch;
+	if (!_cli_batch)
+		cmd_line_redraw();
 }
 
 /* ============================================================
