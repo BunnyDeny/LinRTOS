@@ -81,6 +81,7 @@ static bool wait_for_bool(volatile bool *flag, bool expect,
 
 static volatile bool s_isr_queue_active = false;
 static volatile bool s_isr_sem_active   = false;
+static volatile bool s_suite_done       = false;
 
 static struct rtos_queue s_isr_q;
 static uint8_t  s_isr_q_buf[5 * sizeof(uint32_t)];
@@ -107,6 +108,10 @@ static uint32_t s_fpu_stk2[160];
 void SysTick_Handler(void)
 {
     rtos_tick_handler();
+
+    if (s_suite_done) {
+        return;
+    }
 
 #ifdef WORKQUEUE
     if (system_wq) {
@@ -1206,6 +1211,9 @@ void app_entry_task(void *param)
     sys_printk("\r\n========================================\r\n");
     sys_printk("  Results: %d / %d PASS\r\n", pass, total);
     sys_printk("========================================\r\n");
+
+    /* 测试套件结束，关闭 ISR 测试逻辑，SysTick_Handler 回到最简形态 */
+    s_suite_done = true;
 
     rtos_task_delete(NULL);
 }
