@@ -146,9 +146,6 @@ void SysTick_Handler(void)
 /* ============================================================
  * 1. 任务状态查询
  * ============================================================ */
-/* task_helper 永久存活，不能用共享栈（后续测试会覆写），须独立栈 */
-static uint32_t s_helper_stk[160];
-
 static bool test_state(void)
 {
     static rtos_task_handle_t h_helper;
@@ -179,8 +176,11 @@ static bool test_state(void)
     }
 
     rtos_task_create(task_query,  "query",  s_stk0, 160, NULL, 2, NULL);
-    rtos_task_create(task_helper, "helper", s_helper_stk, 160, NULL, 1, &h_helper);
+    rtos_task_create(task_helper, "helper", s_stk1, 160, NULL, 1, &h_helper);
     rtos_task_delay(600);
+
+    /* helper 已完成使命，删除之，归还共享栈给后续测试 */
+    rtos_task_delete(h_helper);
     return true;
 }
 
