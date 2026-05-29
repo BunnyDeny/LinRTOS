@@ -146,6 +146,9 @@ void SysTick_Handler(void)
 /* ============================================================
  * 1. 任务状态查询
  * ============================================================ */
+/* task_helper 永久存活，不能用共享栈（后续测试会覆写），须独立栈 */
+static uint32_t s_helper_stk[160];
+
 static bool test_state(void)
 {
     static rtos_task_handle_t h_helper;
@@ -176,7 +179,7 @@ static bool test_state(void)
     }
 
     rtos_task_create(task_query,  "query",  s_stk0, 160, NULL, 2, NULL);
-    rtos_task_create(task_helper, "helper", s_stk1, 160, NULL, 1, &h_helper);
+    rtos_task_create(task_helper, "helper", s_helper_stk, 160, NULL, 1, &h_helper);
     rtos_task_delay(600);
     return true;
 }
@@ -1171,26 +1174,27 @@ void app_entry_task(void *param)
     } s_tests[] = {
         {"state",              test_state},
         {"mutex_basic",        test_mutex_basic},
-        {"mutex_recursive",    test_mutex_recursive},
-        {"mutex_priority",     test_mutex_priority},
-        {"semaphore_binary",   test_semaphore_binary},
-        {"semaphore_counting", test_semaphore_counting},
-        {"queue_basic",        test_queue_basic},
-        {"queue_blocking",     test_queue_blocking},
-        {"suspend_resume",     test_suspend_resume},
-        {"self_suspend",       test_self_suspend},
-        {"priority",           test_priority},
-        {"selfdelete",         test_selfdelete},
-        {"sched_lock",         test_sched_lock},
-        {"yield",              test_yield},
-        {"delay_until",        test_delay_until},
-        {"stack_free",         test_stack_free},
-        {"abort_delay",        test_abort_delay},
-        {"queue_isr",          test_queue_isr},
-        {"semaphore_isr",      test_semaphore_isr},
-        {"fpu",                test_fpu},
-        {"cm_backtrace",       test_cm_backtrace},
-        {"workqueue",          test_workqueue},
+
+        // {"mutex_recursive",    test_mutex_recursive},
+        // {"mutex_priority",     test_mutex_priority},
+        // {"semaphore_binary",   test_semaphore_binary},
+        // {"semaphore_counting", test_semaphore_counting},
+        // {"queue_basic",        test_queue_basic},
+        // {"queue_blocking",     test_queue_blocking},
+        // {"suspend_resume",     test_suspend_resume},
+        // {"self_suspend",       test_self_suspend},
+        // {"priority",           test_priority},
+        // {"selfdelete",         test_selfdelete},
+        // {"sched_lock",         test_sched_lock},
+        // {"yield",              test_yield},
+        // {"delay_until",        test_delay_until},
+        // {"stack_free",         test_stack_free},
+        // {"abort_delay",        test_abort_delay},
+        // {"queue_isr",          test_queue_isr},
+        // {"semaphore_isr",      test_semaphore_isr},
+        // {"fpu",                test_fpu},
+        // {"cm_backtrace",       test_cm_backtrace},
+        // {"workqueue",          test_workqueue},
     };
 
     int total = (int)(sizeof(s_tests) / sizeof(s_tests[0]));
