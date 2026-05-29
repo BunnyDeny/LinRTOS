@@ -29,14 +29,17 @@ static bool test_workqueue(void)
     void imm_handler(struct work_struct *ws) {
         (void)ws;
         imm_done = true;
-        sys_printk("  immediate work executed at tick=%lu\r\n",
+        /* ISR split-line test: two calls form one logical line.
+         * \r\n (not \r\033[K) in ISR: starts fresh line, no overwrite. */
+        sys_printk("  [WQ] immediate");
+        sys_printk(" at tick=%lu\r\n",
                    (unsigned long)rtos_get_tick_count());
     }
 
     void del_handler(struct work_struct *ws) {
         (void)ws;
         del_done = true;
-        sys_printk("  delayed work executed at tick=%lu\r\n",
+        sys_printk("  [WQ] delayed at tick=%lu\r\n",
                    (unsigned long)rtos_get_tick_count());
     }
 
@@ -59,6 +62,12 @@ static bool test_workqueue(void)
 
     TEST_ASSERT(imm_done, "immediate work should have run");
     TEST_ASSERT(del_done, "delayed work should have run");
+
+    /* task-context test: sys_printk without trailing \n.
+     * Without the guard, cmd_line_redraw() would append the
+     * CLI prompt on the same line after "no-newline". */
+    sys_printk("  [WQ] no-newline test");
+    sys_printk("  [WQ] normal line\r\n");
 
     return true;
 }
