@@ -366,8 +366,12 @@ int cli_printk(const char *fmt, ...)
 		goto out;
 
 	int in_interactive = scheduler_is_in_get_char();
-	if (in_interactive)
-			cli_out_push((_u8 *)"\r\033[K", 4);
+	/* in exception context (HardFault etc.), skip interactive features */
+	extern int rtos_port_is_in_isr(void);
+	int _in_exc = rtos_port_is_in_isr();
+
+	if (in_interactive && !_in_exc)
+		cli_out_push((_u8 *)"\r\033[K", 4);
 
 	const char *_pre = prefix_gen(pre);
 	int status = printk_format_and_send(_pre, len);
@@ -376,7 +380,7 @@ int cli_printk(const char *fmt, ...)
 		goto out;
 	}
 
-	if (in_interactive) {
+	if (in_interactive && !_in_exc) {
 		if (candidate_ctx.active)
 			candidate_redraw();
 		else
