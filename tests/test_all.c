@@ -1165,14 +1165,10 @@ static bool test_workqueue(void)
 void app_entry_task(void *param)
 {
     (void)param;
-    sys_printk("\r\n========================================\r\n");
-    sys_printk("  LinRTOS Test Suite (All-in-One)\r\n");
-    sys_printk("========================================\r\n\r\n");
-
-    struct {
+    static const struct {
         const char *name;
         bool (*fn)(void);
-    } tests[] = {
+    } s_tests[] = {
         {"state",              test_state},
         {"mutex_basic",        test_mutex_basic},
         {"mutex_recursive",    test_mutex_recursive},
@@ -1190,20 +1186,19 @@ void app_entry_task(void *param)
         {"delay_until",        test_delay_until},
         {"stack_free",         test_stack_free},
         {"abort_delay",        test_abort_delay},
-        /* ISR tests disabled for debugging CLI hang */
-        /* {"queue_isr",          test_queue_isr}, */
-        /* {"semaphore_isr",      test_semaphore_isr}, */
+        {"queue_isr",          test_queue_isr},
+        {"semaphore_isr",      test_semaphore_isr},
         {"fpu",                test_fpu},
         {"cm_backtrace",       test_cm_backtrace},
         {"workqueue",          test_workqueue},
     };
 
-    int total = (int)(sizeof(tests) / sizeof(tests[0]));
+    int total = (int)(sizeof(s_tests) / sizeof(s_tests[0]));
     int pass = 0;
 
     for (int i = 0; i < total; i++) {
-        sys_printk("[%2d/%2d] %-22s ", i + 1, total, tests[i].name);
-        bool ok = tests[i].fn();
+        sys_printk("[%2d/%2d] %-22s ", i + 1, total, s_tests[i].name);
+        bool ok = s_tests[i].fn();
         if (ok) { pass++; sys_printk("PASS\r\n"); }
         else     {        sys_printk("FAIL\r\n"); }
         rtos_task_delay(50);
