@@ -18,7 +18,6 @@ static bool test_selfdelete(void)
 {
     static volatile int created_count = 0;
 
-    sys_printk("[%s]\r\n", __func__);
     created_count = 0;
 
     void self_deleter(void *p) {

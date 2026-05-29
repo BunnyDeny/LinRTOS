@@ -20,7 +20,6 @@ static bool test_priority(void)
     static volatile uint32_t lo_seq = 0;
     static volatile uint32_t hi_seq = 0;
 
-    sys_printk("[%s]\r\n", __func__);
     lo_seq = 0; hi_seq = 0;
 
     /* lo starts at prio=1, then boosts itself to 5 — preempts hi */

@@ -24,7 +24,6 @@ static bool test_workqueue(void)
     static volatile bool imm_done = false;
     static volatile bool del_done = false;
 
-    sys_printk("[%s]\r\n", __func__);
     imm_done = false; del_done = false;
 
     void imm_handler(struct work_struct *ws) {
@@ -66,7 +65,7 @@ static bool test_workqueue(void)
 #else
 static bool test_workqueue(void)
 {
-    sys_printk("[%s] SKIP (Workqueue not enabled)\r\n", __func__);
+    sys_printk("  SKIP\n");
     return true;
 }
 #endif

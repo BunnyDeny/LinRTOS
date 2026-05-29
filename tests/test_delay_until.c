@@ -30,7 +30,6 @@ static bool test_delay_until(void)
     static volatile uint32_t du_tick[5];
     static volatile int32_t du_jitter[5];
 
-    sys_printk("[%s]\r\n", __func__);
     du_count = 0;
 
     void periodic(void *p) {
@@ -52,18 +51,22 @@ static bool test_delay_until(void)
 
     TEST_ASSERT(du_count == 5, "should complete 5 cycles");
 
-    /* Verify period accuracy: each cycle should be ~100 ticks.
-     * Allow ±15 ticks jitter (kernel overhead, ISR latency, etc.) */
+    /* Verify period accuracy:
+     * delay_until wakes at prev, so jitter from target should be ~0.
+     * The interval between successive wake ticks should be ~100. */
     for (int i = 0; i < 5; i++) {
-        int32_t j = du_jitter[i];
         sys_printk("  cycle %d tick=%lu jitter=%ld\r\n",
-                   i, (unsigned long)du_tick[i], (long)j);
-        /* The first cycle jitter has no reference, skip */
+                   i, (unsigned long)du_tick[i], (long)du_jitter[i]);
         if (i > 0) {
-            /* Expect interval ~100 ticks.  Allow generous ±20 to account
-             * for the app_entry task's polling delay interfering. */
-            if (j < 80 || j > 120) {
-                sys_printk("  WARN: cycle %d jitter=%ld outside ±20\r\n", i, (long)j);
+            int32_t j = du_jitter[i];
+            int32_t interval = (int32_t)(du_tick[i] - du_tick[i-1]);
+            /* jitter from target should be small (< 5 ticks) */
+            if (j < -5 || j > 5) {
+                sys_printk("  WARN: cycle %d jitter=%ld > ±5 ticks\r\n", i, (long)j);
+            }
+            /* interval between wakes should be ~100 ticks */
+            if (interval < 90 || interval > 110) {
+                sys_printk("  WARN: cycle %d interval=%ld (expected ~100)\r\n", i, (long)interval);
             }
         }
     }

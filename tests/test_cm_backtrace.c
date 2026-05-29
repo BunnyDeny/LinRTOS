@@ -19,7 +19,6 @@
 #ifdef COMPONENT_CM_BACKTRACE
 static bool test_cm_backtrace(void)
 {
-    sys_printk("[%s]\r\n", __func__);
 
     cm_backtrace_init("LinRTOS-test", "hw-v1.0", "sw-v1.0");
     cm_backtrace_firmware_info();
@@ -42,7 +41,7 @@ static bool test_cm_backtrace(void)
 #else
 static bool test_cm_backtrace(void)
 {
-    sys_printk("[%s] SKIP (CmBacktrace not enabled)\r\n", __func__);
+    sys_printk("  SKIP\n");
     return true;
 }
 #endif

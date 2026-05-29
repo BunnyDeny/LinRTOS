@@ -25,7 +25,6 @@ static bool test_semaphore_isr(void)
 {
     static volatile bool cons_done = false;
 
-    sys_printk("[%s]\r\n", __func__);
 
     s_isr_sem_sent  = 0;
     s_isr_sem_done  = false;

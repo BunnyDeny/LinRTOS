@@ -32,7 +32,6 @@ static bool test_queue_blocking(void)
     static volatile uint32_t pcnt, ccnt;
     static volatile int order_err = 0;
 
-    sys_printk("[%s]\r\n", __func__);
     pcnt = 0; ccnt = 0; order_err = 0;
 
     void producer(void *p) {

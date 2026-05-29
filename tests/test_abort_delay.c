@@ -19,7 +19,6 @@ static bool test_abort_delay(void)
     static rtos_task_handle_t h_sleeper;
     static volatile uint32_t sleeper_wake_tick = 0;
 
-    sys_printk("[%s]\r\n", __func__);
     h_sleeper = NULL;
     sleeper_wake_tick = 0;
 

@@ -24,7 +24,6 @@ static bool test_state(void)
     static volatile rtos_task_state_t s_helper_state1;
     static volatile rtos_task_state_t s_helper_state2;
 
-    sys_printk("[%s]\r\n", __func__);
     h_helper = NULL;
 
     void task_query(void *p) {

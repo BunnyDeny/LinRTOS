@@ -32,7 +32,6 @@ static bool test_mutex_priority(void)
     static volatile uint32_t l_prio, l_prio_after;
     static volatile bool high_done;
 
-    sys_printk("[%s]\r\n", __func__);
     l_prio = 0; l_prio_after = 0; high_done = false;
 
     void low_task(void *p) {

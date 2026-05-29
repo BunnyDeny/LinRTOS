@@ -18,7 +18,6 @@ static bool test_sched_lock(void)
 {
     static volatile bool hi_ran = false;
 
-    sys_printk("[%s]\r\n", __func__);
 
     void hi_task(void *p) {
         (void)p;

@@ -32,7 +32,6 @@ static bool test_mutex_basic(void)
     static volatile uint32_t s_shared, a_done, b_done;
     static volatile rtos_err_t bad_err;
 
-    sys_printk("[%s]\r\n", __func__);
     s_shared = 0; a_done = 0; b_done = 0; bad_err = RTOS_OK;
 
     void task_a(void *p) {

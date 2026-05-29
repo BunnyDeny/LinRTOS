@@ -31,7 +31,6 @@ static bool test_fpu(void)
     static volatile float fp_result_a = 0.0f;
     static volatile float fp_result_b = 0.0f;
 
-    sys_printk("[%s]\r\n", __func__);
     fp_cycles = 0; fp_result_a = 0.0f; fp_result_b = 0.0f;
 
     void fp_task_a(void *p) {
@@ -88,7 +87,7 @@ static bool test_fpu(void)
 #else
 static bool test_fpu(void)
 {
-    sys_printk("[%s] SKIP (no FPU)\r\n", __func__);
+    sys_printk("  SKIP\n");
     return true;
 }
 #endif

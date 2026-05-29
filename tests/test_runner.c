@@ -173,10 +173,9 @@ void app_entry_task(void *param)
 
     FOR_EACH_TEST_CASE(tc) {
         idx++;
-        sys_printk("[%2d/%2d] %-22s ", idx, total, tc->name);
         bool ok = tc->fn();
-        if (ok) { pass++; sys_printk("PASS\r\n"); }
-        else     {        sys_printk("FAIL\r\n"); }
+        if (ok) pass++;
+        sys_printk("[%2d/%2d] %-22s %s\r\n", idx, total, tc->name, ok ? "PASS" : "FAIL");
         rtos_task_delay(50);
     }
 

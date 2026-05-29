@@ -28,7 +28,6 @@ static bool test_yield(void)
     static volatile bool a_done = false;
     static volatile bool b_done = false;
 
-    sys_printk("[%s]\r\n", __func__);
     s_seq = 0; a_idx = 0; b_idx = 0; a_done = false; b_done = false;
 
     void t_a(void *p) {

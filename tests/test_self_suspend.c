@@ -21,7 +21,6 @@ static bool test_self_suspend(void)
     static volatile bool ctrl_done = false;
     static rtos_task_handle_t h_self;
 
-    sys_printk("[%s]\r\n", __func__);
     sscnt = 0; ctrl_done = false; h_self = NULL;
 
     void self_task(void *p) {

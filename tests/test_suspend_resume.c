@@ -19,7 +19,6 @@ static bool test_suspend_resume(void)
     static volatile uint32_t s_seq = 0;
     static rtos_task_handle_t h_task;
 
-    sys_printk("[%s]\r\n", __func__);
     s_seq = 0; h_task = NULL;
 
     void task_func(void *p) {

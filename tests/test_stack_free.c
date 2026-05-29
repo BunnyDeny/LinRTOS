@@ -20,7 +20,6 @@ static bool test_stack_free(void)
     static volatile uint32_t free_a = 0;
     static volatile uint32_t free_b = 0;
 
-    sys_printk("[%s]\r\n", __func__);
     free_a = 0; free_b = 0;
 
     void task_a(void *p) {

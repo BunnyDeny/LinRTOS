@@ -32,7 +32,6 @@ static bool test_mutex_recursive(void)
     static volatile bool t_done;
     static volatile rtos_err_t bad_err;
 
-    sys_printk("[%s]\r\n", __func__);
     t_done = false; bad_err = RTOS_OK;
 
     void other_task(void *p) {

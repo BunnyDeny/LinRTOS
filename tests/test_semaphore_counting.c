@@ -32,7 +32,6 @@ static bool test_semaphore_counting(void)
     static struct rtos_queue sem;
     static volatile uint32_t pcnt, ccnt;
 
-    sys_printk("[%s]\r\n", __func__);
     pcnt = 0; ccnt = 0;
 
     void p1(void *p) {

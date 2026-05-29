@@ -24,7 +24,6 @@ static bool test_basic_tasks(void)
     static volatile uint32_t low_cnt  = 0;
     static rtos_task_handle_t h_high, h_mid, h_low;
 
-    sys_printk("[%s]\r\n", __func__);
     high_cnt = 0; mid_cnt = 0; low_cnt = 0;
 
     void task_high(void *p) {
