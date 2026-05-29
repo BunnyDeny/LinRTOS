@@ -408,7 +408,14 @@ out:
 	return ret;
 }
 
-void cli_printk_batch_begin(void) { ++_cli_batch; }
+void cli_printk_batch_begin(void)
+{
+	if (!_cli_batch) {
+		cli_out_push((_u8 *)"\r\033[K", 4);
+		cli_out_sync();
+	}
+	++_cli_batch;
+}
 
 void cli_printk_batch_end(void)
 {
