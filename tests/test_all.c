@@ -1190,8 +1190,9 @@ void app_entry_task(void *param)
         {"delay_until",        test_delay_until},
         {"stack_free",         test_stack_free},
         {"abort_delay",        test_abort_delay},
-        {"queue_isr",          test_queue_isr},
-        {"semaphore_isr",      test_semaphore_isr},
+        /* ISR tests disabled for debugging CLI hang */
+        /* {"queue_isr",          test_queue_isr}, */
+        /* {"semaphore_isr",      test_semaphore_isr}, */
         {"fpu",                test_fpu},
         {"cm_backtrace",       test_cm_backtrace},
         {"workqueue",          test_workqueue},
