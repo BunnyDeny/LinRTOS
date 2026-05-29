@@ -844,6 +844,10 @@ static bool test_delay_until(void)
     if (!wait_for(&du_count, 5, 2000)) return false;
     TEST_ASSERT(du_count == 5, "delay_until 5 cycles");
 
+    /* periodic 最后一次 delay_until 可能尚未到期，
+     * 必须等它自删完成，否则下一测试复用 s_stk0 会覆盖其栈 */
+    rtos_task_delay(120);
+
     return true;
 }
 
