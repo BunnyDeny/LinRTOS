@@ -6,7 +6,7 @@
 #include "cli_io.h"
 #include "test_case.h"
 
-#if defined(ENABLE_TEST_CASES) && defined(TEST_WORKQUEUE)
+#if defined(ENABLE_TEST_CASES) && defined(TEST_WORKQUEUE) && defined(ARCH_COMPILER_GCC)
 
 #ifdef WORKQUEUE
 #include "workqueue.h"

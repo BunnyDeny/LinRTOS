@@ -6,7 +6,7 @@
 #include "cli_io.h"
 #include "test_case.h"
 
-#if defined(ENABLE_TEST_CASES) && defined(TEST_FPU)
+#if defined(ENABLE_TEST_CASES) && defined(TEST_FPU) && defined(ARCH_COMPILER_GCC)
 
 #ifdef ARCH_ENABLE_FPU
 #include <math.h>

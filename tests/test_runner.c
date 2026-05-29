@@ -25,7 +25,7 @@
 #define COLOR_RED    "\033[31m"
 #define COLOR_RESET  "\033[0m"
 
-#if defined(ENABLE_TEST_CASES)
+#if defined(ENABLE_TEST_CASES) && defined(ARCH_COMPILER_GCC)
 
 /* ============================================================
  * Section boundary markers

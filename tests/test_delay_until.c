@@ -6,7 +6,7 @@
 #include "cli_io.h"
 #include "test_case.h"
 
-#if defined(ENABLE_TEST_CASES) && defined(TEST_DELAY_UNTIL)
+#if defined(ENABLE_TEST_CASES) && defined(TEST_DELAY_UNTIL) && defined(ARCH_COMPILER_GCC)
 
 extern uint32_t s_stk0[160];
 

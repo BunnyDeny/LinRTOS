@@ -6,7 +6,7 @@
 #include "cli_io.h"
 #include "test_case.h"
 
-#if defined(ENABLE_TEST_CASES) && defined(TEST_CM_BACKTRACE)
+#if defined(ENABLE_TEST_CASES) && defined(TEST_CM_BACKTRACE) && defined(ARCH_COMPILER_GCC)
 
 #ifdef COMPONENT_CM_BACKTRACE
 #include "cm_backtrace.h"

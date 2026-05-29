@@ -7,7 +7,7 @@
 #include "rtos_semaphore.h"
 #include "test_case.h"
 
-#if defined(ENABLE_TEST_CASES) && defined(TEST_SEMAPHORE_ISR)
+#if defined(ENABLE_TEST_CASES) && defined(TEST_SEMAPHORE_ISR) && defined(ARCH_COMPILER_GCC)
 
 extern uint32_t s_stk0[160];
 
