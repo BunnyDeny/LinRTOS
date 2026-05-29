@@ -46,7 +46,7 @@ config RTOS_MAX_TASKS
 
 config RTOS_IDLE_STACK_SIZE
 	int "Idle task stack size (words)"
-	default 64
+	default 128
 	help
 	  Stack size in uint32_t words.
 
