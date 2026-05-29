@@ -11,6 +11,7 @@
 #include "main.h"
 #include "usart.h"
 #include "linRTOS.h"
+#include "port.h"
 #include "cli_io.h"
 #include "cli_critical.h"
 
@@ -115,6 +116,11 @@ void cli_exit_critical(void)
     if (s_cli_critical_nest > 0 && --s_cli_critical_nest == 0) {
         rtos_port_exit_critical(s_cli_critical_state);
     }
+}
+
+int cli_in_exception(void)
+{
+    return rtos_port_is_in_isr();
 }
 
 /* ============================================================

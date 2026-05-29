@@ -367,8 +367,8 @@ int cli_printk(const char *fmt, ...)
 
 	int in_interactive = scheduler_is_in_get_char();
 	/* in exception context (HardFault etc.), skip interactive features */
-	extern int rtos_port_is_in_isr(void);
-	int _in_exc = rtos_port_is_in_isr();
+	extern int cli_in_exception(void);
+	int _in_exc = cli_in_exception();
 
 	if (in_interactive && !_in_exc)
 		cli_out_push((_u8 *)"\r\033[K", 4);
