@@ -428,6 +428,13 @@ if (!(EXPR))                                                                   \
         __asm volatile ("MOV %0, sp\n" : "=r" (result) );
         return(result);
     }
+    /* Read CONTROL.SPSEL (bit 1): 0=MSP, 1=PSP.
+     * Unlike comparing SP==PSP, this does NOT drift with nested calls. */
+    __attribute__( ( always_inline ) ) static inline int cmb_is_on_psp(void) {
+        register uint32_t control;
+        __asm volatile ("MRS %0, CONTROL\n" : "=r" (control));
+        return (control & 2) != 0;
+    }
 #else
     #error "not supported compiler"
 #endif

@@ -170,23 +170,27 @@ int all_printk(const char *fmt, ...)
 
 int sys_printk(const char *fmt, ...)
 {
+	int len;
+
+	cli_enter_critical();
+
 	va_list args;
 	va_start(args, fmt);
-	int len = vsnprintf(s_printk_buf, sizeof(s_printk_buf), fmt, args);
+	len = vsnprintf(s_printk_buf, sizeof(s_printk_buf), fmt, args);
 	va_end(args);
 
-	if (len <= 0)
-		return len;
-
-	if ((size_t)len >= sizeof(s_printk_buf)) {
-		const char *trunc = "...[trunc]\n";
-		size_t tlen = strlen(trunc);
-		size_t pos = sizeof(s_printk_buf) > tlen ? sizeof(s_printk_buf) - tlen - 1 : 0;
-		memcpy(&s_printk_buf[pos], trunc, tlen + 1);
-		len = sizeof(s_printk_buf) - 1;
+	if (len > 0) {
+		if ((size_t)len >= sizeof(s_printk_buf)) {
+			const char *trunc = "...[trunc]\n";
+			size_t tlen = strlen(trunc);
+			size_t pos = sizeof(s_printk_buf) > tlen ? sizeof(s_printk_buf) - tlen - 1 : 0;
+			memcpy(&s_printk_buf[pos], trunc, tlen + 1);
+			len = sizeof(s_printk_buf) - 1;
+		}
+		cli_printk("%s", s_printk_buf);
 	}
 
-	cli_printk("%s", s_printk_buf);
+	cli_exit_critical();
 	return len;
 }
 
@@ -363,7 +367,7 @@ int cli_printk(const char *fmt, ...)
 
 	int in_interactive = scheduler_is_in_get_char();
 	if (in_interactive)
-		cli_out_push((_u8 *)"\r\033[K", 4);
+			cli_out_push((_u8 *)"\r\033[K", 4);
 
 	const char *_pre = prefix_gen(pre);
 	int status = printk_format_and_send(_pre, len);

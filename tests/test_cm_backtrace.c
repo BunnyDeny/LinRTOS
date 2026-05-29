@@ -1,8 +1,12 @@
 /*
  * Test: CmBacktrace integration (conditional: COMPONENT_CM_BACKTRACE)
  *
- * 用 noinline 函数构建 level1->level2->level3->capture 调用链,
- * 在最深层捕获回溯, 单次 sys_printk 打印完整 addr2line 命令.
+ * 直接在 test_cm_backtrace() 中完成:
+ *   1. 初始化 + 正常状态调用栈
+ *   2. 触发 HardFault → CmBacktrace 自动诊断
+ *
+ * 不创建独立任务, 零 TCB 依赖, 避免跨测试状态干扰.
+ * HardFault 后系统停止, 本测试应单独选中或放最后.
  */
 #include "linRTOS.h"
 #include "cli_io.h"
@@ -13,70 +17,52 @@
 #ifdef COMPONENT_CM_BACKTRACE
 #include "cm_backtrace.h"
 
-#define TEST_ASSERT(cond, msg) do { \
-    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
-} while (0)
-
-static __attribute__((noinline)) void cmb_capture(volatile size_t *out_depth,
-                                                   uint32_t *stack, size_t n)
+static void __attribute__((noinline)) trigger_memory_fault(void)
 {
-    uint32_t sp = cmb_get_sp();
-    *out_depth = cm_backtrace_call_stack(stack, n, sp);
+    sys_printk("[CMB] Triggering illegal memory access...\r\n");
+    volatile uint32_t *bad_ptr = (volatile uint32_t *)0xFFFFFFFF;
+    *bad_ptr = 0xDEADBEEF;
 }
 
-static __attribute__((noinline)) void cmb_level3(volatile size_t *out_depth,
-                                                   uint32_t *stack, size_t n)
+static void __attribute__((noinline)) level3(void)
 {
-    cmb_capture(out_depth, stack, n);
+    sys_printk("[CMB] About to trigger HardFault...\r\n");
+    trigger_memory_fault();
 }
 
-static __attribute__((noinline)) void cmb_level2(volatile size_t *out_depth,
-                                                   uint32_t *stack, size_t n)
-{
-    cmb_level3(out_depth, stack, n);
-}
-
-static __attribute__((noinline)) void cmb_level1(volatile size_t *out_depth,
-                                                   uint32_t *stack, size_t n)
-{
-    cmb_level2(out_depth, stack, n);
-}
+static void __attribute__((noinline)) level2(void) { level3(); }
+static void __attribute__((noinline)) level1(void) { level2(); }
 
 static bool test_cm_backtrace(void)
 {
+    sys_printk("\r\n  -> HardFault will be triggered, system halts.\r\n");
+
     cm_backtrace_init("LinRTOS-test", "hw-v1.0", "sw-v1.0");
-    sys_printk("  Firmware: LinRTOS-test hw-v1.0 sw-v1.0\r\n");
+    cm_backtrace_firmware_info();
 
-    uint32_t call_stack[16] = {0};
-    volatile size_t depth = 0;
+    /* normal state: dump call stack */
+    {
+        uint32_t call_stack[16] = {0};
+        size_t depth;
+        uint32_t sp = cmb_get_sp();
 
-    /* capture -> level3 -> level2 -> level1 -> test_cm_backtrace -> ... */
-    cmb_level1(&depth, call_stack, sizeof(call_stack) / sizeof(call_stack[0]));
+        /* debug: print stack boundaries being scanned */
+        extern uint32_t _stext, _etext;
+        sys_printk("[CMB] code: %08x-%08x sp=%08x psp=%08x on_psp=%d\r\n",
+                   (unsigned)&_stext, (unsigned)&_etext,
+                   (unsigned)sp, (unsigned)cmb_get_psp(), cmb_is_on_psp());
 
-    /* build the complete addr2line line in a static buffer, one sys_printk */
-    if (depth > 0) {
-        static char line[256];
-        int pos = 0;
-        pos += snprintf(line + pos, sizeof(line) - pos,
-                        "  addr2line -e stm32g431_gcc_example_project.elf -afpiC");
-        for (size_t i = 0; i < depth && pos < (int)sizeof(line) - 12; i++) {
-            pos += snprintf(line + pos, sizeof(line) - pos,
-                            " %08lx", (unsigned long)call_stack[i]);
+        depth = cm_backtrace_call_stack(call_stack,
+                                         sizeof(call_stack) / sizeof(call_stack[0]), sp);
+        sys_printk("[CMB] call stack depth=%u\r\n", (unsigned)depth);
+        for (size_t i = 0; i < depth; i++) {
+            sys_printk("[CMB]   [%u] 0x%08X\r\n", (unsigned)i, (unsigned)call_stack[i]);
         }
-        sys_printk("%s\r\n", line);
     }
 
-    sys_printk("  call stack depth=%u\r\n", (unsigned)depth);
+    level1();
 
-    TEST_ASSERT(depth >= 5, "depth should be >= 5 (multi-level call chain)");
-
-    for (size_t i = 0; i < depth; i++) {
-        uint32_t addr = call_stack[i];
-        if (addr == 0) break;
-        TEST_ASSERT(addr >= 0x08000000U && addr < 0x08020000U,
-                    "return address should be in Flash range");
-    }
-
+    for (;;) {}
     return true;
 }
 

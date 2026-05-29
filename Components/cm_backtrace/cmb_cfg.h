@@ -14,12 +14,25 @@
 
 #ifdef COMPONENT_CM_BACKTRACE
 
-/* Print line: map to LinRTOS sys_printk */
-#define cmb_println(fmt, ...) \
-    do { \
-        sys_printk(fmt, ##__VA_ARGS__); \
-        sys_printk("\r\n"); \
-    } while(0)
+#include <stdarg.h>
+
+/* Print line: append \r\n to format and call sys_printk once (atomic). */
+#define cmb_println cmb_println
+static inline int cmb_println(const char *fmt, ...)
+{
+    char lbuf[160];
+    va_list args;
+    int len;
+    va_start(args, fmt);
+    len = vsnprintf(lbuf, sizeof(lbuf) - 2, fmt, args);
+    va_end(args);
+    if (len <= 0) return len;
+    if ((size_t)len >= sizeof(lbuf) - 2) len = sizeof(lbuf) - 3;
+    lbuf[len++] = '\r';
+    lbuf[len++] = '\n';
+    lbuf[len]   = '\0';
+    return sys_printk("%s", lbuf);
+}
 
 #define cmb_print(fmt, ...) \
     do { \

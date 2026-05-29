@@ -388,7 +388,7 @@ size_t cm_backtrace_call_stack(uint32_t *buffer, size_t size, uint32_t sp) {
         }
     } else {
         /* OS environment */
-        if (cmb_get_sp() == cmb_get_psp()) {
+        if (cmb_is_on_psp()) {
             get_cur_thread_stack_info(&tcb_sp, &stack_start_addr, &stack_size);
         }
 #endif /* CMB_USING_OS_PLATFORM */
@@ -453,7 +453,6 @@ static void print_call_stack(uint32_t sp) {
 void cm_backtrace_assert(uint32_t sp) {
 #ifdef CMB_USING_OS_PLATFORM
     uint32_t tcb_sp;
-    uint32_t cur_stack_pointer = cmb_get_sp();
 #endif
 
     CMB_ASSERT(init_ok);
@@ -463,14 +462,14 @@ void cm_backtrace_assert(uint32_t sp) {
 
 #ifdef CMB_USING_OS_PLATFORM
     /* OS environment */
-    if (cur_stack_pointer == cmb_get_msp()) {
+    if (!cmb_is_on_psp()) {
         cmb_println(print_info[PRINT_ASSERT_ON_HANDLER]);
 
 #ifdef CMB_USING_DUMP_STACK_INFO
         dump_stack(main_stack_start_addr, main_stack_size, (uint32_t *) sp);
 #endif /* CMB_USING_DUMP_STACK_INFO */
 
-    } else if (cur_stack_pointer == cmb_get_psp()) {
+    } else {
         cmb_println(print_info[PRINT_ASSERT_ON_THREAD], get_cur_thread_name());
 
 #ifdef CMB_USING_DUMP_STACK_INFO
