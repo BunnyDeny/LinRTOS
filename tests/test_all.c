@@ -800,21 +800,16 @@ static bool test_sched_lock(void)
  * ============================================================ */
 static bool test_yield(void)
 {
-    static volatile uint32_t seq = 0;
-
     sys_printk("[%s]\r\n", __func__);
-    seq = 0;
 
     void task_a(void *p) {
         (void)p;
-        seq = 1;
         rtos_task_yield();
         rtos_task_delete(NULL);
     }
 
     void task_b(void *p) {
         (void)p;
-        seq = 2;
         rtos_task_delete(NULL);
     }
 
@@ -1014,7 +1009,7 @@ static bool test_fpu(void)
         float s = 0.0f;
         for (int i = 0; i < 10; i++) {
             s += 0.1f;
-            float x = sinf(s);
+            (void)sinf(s);
             fp_cycles++;
             rtos_task_delay(20);
         }
@@ -1055,6 +1050,7 @@ static bool test_fpu(void)
     float diff = fp_result_a - 1.0f;
     if (diff < 0.0f) diff = -diff;
     TEST_ASSERT(diff < 0.01f, "fp_task_a accuracy");
+    TEST_ASSERT(fp_result_b > 1.0f, "fp_task_b made progress");
 
     return true;
 }
