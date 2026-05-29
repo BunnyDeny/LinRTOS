@@ -1,83 +1,66 @@
 /*
- * Test: Abort delay
- *
- * 验证项：
- *  - rtos_task_abort_delay 强制唤醒阻塞任务
- *  - rtos_scheduler_is_running 查询调度器状态
+ * Test: Abort delay — force wake blocked task
+ * 验证: rtos_task_abort_delay 将阻塞任务强制唤醒, 验证状态变化和时间
  */
-
 #include "linRTOS.h"
 #include "cli_io.h"
+#include "test_case.h"
 
 #if defined(ENABLE_TEST_CASES) && defined(TEST_ABORT_DELAY)
 
+extern uint32_t s_stk0[160];
 
-/* ============================================================
- * 静态资源
- * ============================================================ */
+#define TEST_ASSERT(cond, msg) do { \
+    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+} while (0)
 
-static uint32_t task_low_stack[128];
-static uint32_t task_ctrl_stack[128];
-
-static rtos_task_handle_t h_low = NULL;
-
-/* ============================================================
- * 低优先级任务 —— 长时间延时，被 abort_delay 强制唤醒
- * ============================================================ */
-
-static void task_low(void *param)
+static bool test_abort_delay(void)
 {
-    (void)param;
-    for (;;) {
-    sys_printk("[LOW ] delaying 1000 ticks\r\n");
-        rtos_task_delay(1000);
-        sys_printk("[LOW ] woken at tick=%lu\r\n",
-                         (unsigned long)rtos_get_tick_count());
-    }
-}
+    static rtos_task_handle_t h_sleeper;
+    static volatile uint32_t sleeper_wake_tick = 0;
 
-/* ============================================================
- * 控制任务 —— 强制唤醒低优先级任务
- * ============================================================ */
+    sys_printk("[%s]\r\n", __func__);
+    h_sleeper = NULL;
+    sleeper_wake_tick = 0;
 
-static void task_ctrl(void *param)
-{
-    (void)param;
-
-    sys_printk("[CTRL] scheduler is_running=%d\r\n",
-                     rtos_scheduler_is_running());
-
-    for (int i = 0; i < 3; i++) {
-        rtos_task_delay(600);
-        sys_printk("[CTRL] abort_delay low task (attempt %d)\r\n", i + 1);
-        rtos_err_t err = rtos_task_abort_delay(h_low);
-        if (err == RTOS_OK) {
-        sys_printk("[CTRL] abort_delay OK\r\n");
-        } else {
-        sys_printk("[CTRL] abort_delay failed err=%d\r\n", (int)err);
-        }
+    void sleeper(void *p) {
+        (void)p;
+        sys_printk("  sleeper delaying 5000 ticks...\r\n");
+        uint32_t t0 = rtos_get_tick_count();
+        rtos_task_delay(5000);
+        sleeper_wake_tick = rtos_get_tick_count() - t0;
+        sys_printk("  sleeper woken after %lu ticks\r\n",
+                   (unsigned long)sleeper_wake_tick);
+        rtos_task_delete(NULL);
     }
 
-    sys_printk("[CTRL] test done, entering idle\r\n");
-    for (;;) {
-        rtos_task_delay(1000);
-    }
+    /* Verify scheduler is running */
+    TEST_ASSERT(rtos_scheduler_is_running(), "scheduler should be running");
+
+    rtos_task_create(sleeper, "sleep", s_stk0, 160, NULL, 2, &h_sleeper);
+
+    /* Wait a bit, then abort the delay */
+    rtos_task_delay(50);
+
+    rtos_task_state_t st = rtos_task_get_state(h_sleeper);
+    TEST_ASSERT(st == RTOS_TASK_BLOCKED, "sleeper should be BLOCKED before abort");
+
+    rtos_err_t e = rtos_task_abort_delay(h_sleeper);
+    TEST_ASSERT(e == RTOS_OK, "abort_delay should return OK");
+
+    rtos_task_delay(50);
+
+    /* After abort, task should no longer be BLOCKED */
+    st = rtos_task_get_state(h_sleeper);
+    TEST_ASSERT(st != RTOS_TASK_BLOCKED, "sleeper should NOT be BLOCKED after abort");
+
+    /* The sleeper should have woken much sooner than 5000 ticks */
+    TEST_ASSERT(sleeper_wake_tick > 0, "sleeper should report wake time");
+    TEST_ASSERT(sleeper_wake_tick < 1000, "sleeper should wake well before 5000 ticks");
+
+    return true;
 }
 
-/* ============================================================
- * 统一入口
- * ============================================================ */
+TEST_CASE_REGISTER(abort_delay, test_abort_delay);
 
-void app_entry_task(void *param)
-{
-    (void)param;
-
-    sys_printk("=== Test: Abort Delay ===\r\n");
-
-    rtos_task_create(task_low, "low", task_low_stack, 128, NULL, 1, &h_low);
-    rtos_task_create(task_ctrl, "ctrl", task_ctrl_stack, 128, NULL, 3, NULL);
-
-    rtos_task_delete(NULL);
-}
-
-#endif /* TEST_ABORT_DELAY */
+#endif

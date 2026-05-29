@@ -1,118 +1,85 @@
 /*
- * Test: Basic multi-task + delay
- *
- * 验证项：
- *  - 多任务创建与删除
- *  - rtos_task_delay 相对延时
- *  - rtos_task_delay_until 绝对周期延时
- *  - 抢占式优先级调度（高优先级打断低优先级）
- *  - 同优先级时间片轮转（若开启）
+ * Test: Basic multi-task + delay + preemption (visual test)
+ * 验证: 多任务创建/删除, delay, delay_until, 抢占调度
+ * 此测试主要为串口观察设计, 通过计数验证基本功能
  */
-
 #include "linRTOS.h"
 #include "cli_io.h"
+#include "test_case.h"
 
 #if defined(ENABLE_TEST_CASES) && defined(TEST_BASIC_TASKS)
 
+extern uint32_t s_stk0[160];
+extern uint32_t s_stk1[160];
+extern uint32_t s_stk2[160];
 
-/* ============================================================
- * 静态资源
- * ============================================================ */
+#define TEST_ASSERT(cond, msg) do { \
+    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+} while (0)
 
-static uint32_t task_high_stack[128];
-static uint32_t task_mid_stack[128];
-static uint32_t task_low_stack[128];
-static uint32_t task_periodic_stack[128];
-
-static volatile uint32_t s_high_count = 0;
-static volatile uint32_t s_mid_count  = 0;
-static volatile uint32_t s_low_count  = 0;
-static volatile uint32_t s_periodic_count = 0;
-
-/* ============================================================
- * 高优先级任务 —— 频繁运行，验证抢占
- * ============================================================ */
-
-static void task_high(void *param)
+static bool test_basic_tasks(void)
 {
-    (void)param;
-    for (;;) {
-        s_high_count++;
-        sys_printk("[HIGH] tick=%lu count=%lu\r\n",
-                         (unsigned long)rtos_get_tick_count(),
-                         (unsigned long)s_high_count);
-        rtos_task_delay(200);
+    static volatile uint32_t high_cnt = 0;
+    static volatile uint32_t mid_cnt  = 0;
+    static volatile uint32_t low_cnt  = 0;
+    static rtos_task_handle_t h_high, h_mid, h_low;
+
+    sys_printk("[%s]\r\n", __func__);
+    high_cnt = 0; mid_cnt = 0; low_cnt = 0;
+
+    void task_high(void *p) {
+        (void)p;
+        for (;;) {
+            high_cnt++;
+            rtos_task_delay(200);
+        }
     }
-}
 
-/* ============================================================
- * 中优先级任务 —— 中等频率
- * ============================================================ */
-
-static void task_mid(void *param)
-{
-    (void)param;
-    for (;;) {
-        s_mid_count++;
-        sys_printk("[MID ] tick=%lu count=%lu\r\n",
-                         (unsigned long)rtos_get_tick_count(),
-                         (unsigned long)s_mid_count);
-        rtos_task_delay(400);
+    void task_mid(void *p) {
+        (void)p;
+        for (;;) {
+            mid_cnt++;
+            rtos_task_delay(400);
+        }
     }
-}
 
-/* ============================================================
- * 低优先级任务 —— 慢速运行，验证高优先级抢占时被打断
- * ============================================================ */
-
-static void task_low(void *param)
-{
-    (void)param;
-    for (;;) {
-        s_low_count++;
-        sys_printk("[LOW ] tick=%lu count=%lu\r\n",
-                         (unsigned long)rtos_get_tick_count(),
-                         (unsigned long)s_low_count);
-        rtos_task_delay(800);
+    void task_low(void *p) {
+        (void)p;
+        for (;;) {
+            low_cnt++;
+            rtos_task_delay(800);
+        }
     }
+
+    rtos_task_create(task_high, "high", s_stk0, 160, NULL, 3, &h_high);
+    rtos_task_create(task_mid,  "mid",  s_stk1, 160, NULL, 2, &h_mid);
+    rtos_task_create(task_low,  "low",  s_stk2, 160, NULL, 1, &h_low);
+
+    /* Let them run for a while */
+    rtos_task_delay(2000);
+
+    uint32_t h = high_cnt, m = mid_cnt, l = low_cnt;
+    sys_printk("  after 2000 ticks: high=%lu mid=%lu low=%lu\r\n",
+               (unsigned long)h, (unsigned long)m, (unsigned long)l);
+
+    /* High priority (delay=200) should run ~10 times in 2000 ticks.
+     * Mid (delay=400) should run ~5 times.
+     * Low (delay=800) should run ~2-3 times but preempted by higher tasks. */
+    TEST_ASSERT(h >= 5, "high task should have run at least 5 times");
+    TEST_ASSERT(m >= 2, "mid task should have run at least 2 times");
+    TEST_ASSERT(l >= 1, "low task should have run at least once");
+
+    /* High should run more than low (preemption) */
+    TEST_ASSERT(h >= l, "high should run >= low due to preemption");
+
+    /* Clean up — these tasks loop forever, must be deleted */
+    rtos_task_delete(h_high);
+    rtos_task_delete(h_mid);
+    rtos_task_delete(h_low);
+
+    return true;
 }
 
-/* ============================================================
- * 周期任务 —— 验证 rtos_task_delay_until 绝对周期精度
- * ============================================================ */
+TEST_CASE_REGISTER(basic_tasks, test_basic_tasks);
 
-static void task_periodic(void *param)
-{
-    (void)param;
-    uint32_t prev_wake = rtos_get_tick_count();
-    for (;;) {
-        s_periodic_count++;
-        uint32_t now = rtos_get_tick_count();
-        int32_t jitter = (int32_t)(now - prev_wake);
-        sys_printk("[PER ] tick=%lu count=%lu jitter=%ld\r\n",
-                         (unsigned long)now,
-                         (unsigned long)s_periodic_count,
-                         (long)jitter);
-        rtos_task_delay_until(&prev_wake, 500);
-    }
-}
-
-/* ============================================================
- * 统一入口
- * ============================================================ */
-
-void app_entry_task(void *param)
-{
-    (void)param;
-
-    sys_printk("=== Test: Basic Tasks ===\r\n");
-
-    rtos_task_create(task_high,     "high",     task_high_stack,     128, NULL, 3, NULL);
-    rtos_task_create(task_mid,      "mid",      task_mid_stack,      128, NULL, 2, NULL);
-    rtos_task_create(task_low,      "low",      task_low_stack,      128, NULL, 1, NULL);
-    rtos_task_create(task_periodic, "periodic", task_periodic_stack, 128, NULL, 2, NULL);
-
-    rtos_task_delete(NULL);
-}
-
-#endif /* TEST_BASIC_TASKS */
+#endif

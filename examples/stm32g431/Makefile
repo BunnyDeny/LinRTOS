@@ -81,10 +81,12 @@ Core/Src/stm32g4xx_hal_msp.c \
 ../../tests/test_selfdelete.c \
 ../../tests/test_basic_tasks.c \
 ../../tests/test_suspend_resume.c \
+../../tests/test_self_suspend.c \
 ../../tests/test_sched_lock.c \
 ../../tests/test_state.c \
 ../../tests/test_priority.c \
 ../../tests/test_yield.c \
+../../tests/test_delay_until.c \
 ../../tests/test_stack_free.c \
 ../../tests/test_abort_delay.c \
 ../../tests/test_cm_backtrace.c \
@@ -98,7 +100,7 @@ Core/Src/stm32g4xx_hal_msp.c \
 ../../tests/test_mutex_basic.c \
 ../../tests/test_mutex_recursive.c \
 ../../tests/test_mutex_priority.c \
-../../tests/test_all.c \
+../../tests/test_runner.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_pwr_ex.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart.c \
 Drivers/STM32G4xx_HAL_Driver/Src/stm32g4xx_hal_uart_ex.c \

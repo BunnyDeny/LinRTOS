@@ -1,60 +1,75 @@
+/*
+ * Test: Binary semaphore — producer / consumer sync
+ * 验证: init_binary, give, take, semaphore count
+ */
 #include "linRTOS.h"
 #include "cli_io.h"
 #include "rtos_semaphore.h"
+#include "test_case.h"
 
 #if defined(ENABLE_TEST_CASES) && defined(TEST_SEMAPHORE_BINARY)
 
-static struct rtos_queue s_sem;
-static uint32_t s_pstk[128];
-static uint32_t s_cstk[128];
-static volatile uint32_t s_pcnt = 0;
-static volatile uint32_t s_ccnt = 0;
+extern uint32_t s_stk0[160];
+extern uint32_t s_stk1[160];
 
-static void producer(void *p)
+#define TEST_ASSERT(cond, msg) do { \
+    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+} while (0)
+
+static bool wait_for_val(volatile uint32_t *f, uint32_t e, uint32_t to)
 {
-    (void)p;
-    for (uint32_t i = 0; i < 5; i++) {
-        rtos_task_delay(30);  /* 模拟生产耗时 */
-        rtos_semaphore_give(&s_sem);
-        s_pcnt++;
-        sys_printk("[SEM-BIN] produced #%lu\r\n", (unsigned long)(i + 1));
+    uint32_t start = rtos_get_tick_count();
+    while (*f < e) {
+        if ((int32_t)(rtos_get_tick_count() - start) >= (int32_t)to) return false;
+        rtos_task_delay(10);
     }
-    rtos_task_delete(NULL);
+    return true;
 }
 
-static void consumer(void *p)
+static bool test_semaphore_binary(void)
 {
-    (void)p;
-    for (uint32_t i = 0; i < 5; i++) {
-        rtos_semaphore_take(&s_sem, RTOS_WAIT_FOREVER);
-        s_ccnt++;
-        sys_printk("[SEM-BIN] consumed #%lu\r\n", (unsigned long)(i + 1));
-    }
-    rtos_task_delete(NULL);
-}
+    static struct rtos_queue sem;
+    static volatile uint32_t pcnt, ccnt;
 
-void app_entry_task(void *param)
-{
-    (void)param;
-    sys_printk("=== Test: Semaphore Binary ===\r\n");
+    sys_printk("[%s]\r\n", __func__);
+    pcnt = 0; ccnt = 0;
 
-    rtos_semaphore_init_binary(&s_sem);
-
-    /* 消费者先创建，阻塞等待信号量 */
-    rtos_task_create(consumer, "cons", s_cstk, 128, NULL, 5, NULL);
-    /* 生产者后创建，优先级较低 */
-    rtos_task_create(producer, "prod", s_pstk, 128, NULL, 2, NULL);
-
-    while (s_pcnt < 5 || s_ccnt < 5) {
-        rtos_task_delay(50);
+    void producer(void *p) {
+        (void)p;
+        for (int i = 0; i < 5; i++) {
+            rtos_task_delay(30);
+            rtos_semaphore_give(&sem);
+            pcnt++;
+        }
+        rtos_task_delete(NULL);
     }
 
-    RTOS_ASSERT(s_pcnt == 5);
-    RTOS_ASSERT(s_ccnt == 5);
-    RTOS_ASSERT(rtos_semaphore_get_count(&s_sem) == 0);
+    void consumer(void *p) {
+        (void)p;
+        for (int i = 0; i < 5; i++) {
+            rtos_err_t e = rtos_semaphore_take(&sem, RTOS_WAIT_FOREVER);
+            if (e == RTOS_OK) ccnt++;
+        }
+        rtos_task_delete(NULL);
+    }
 
-    sys_printk("=== Test: Semaphore Binary DONE ===\r\n");
-    rtos_task_delete(NULL);
+    rtos_semaphore_init_binary(&sem);
+
+    /* consumer first — blocks; producer second — wakes consumer */
+    rtos_task_create(consumer, "cons", s_stk1, 160, NULL, 5, NULL);
+    rtos_task_create(producer, "prod", s_stk0, 160, NULL, 2, NULL);
+
+    if (!wait_for_val(&pcnt, 5, 2000)) TEST_ASSERT(0, "timeout producer");
+    if (!wait_for_val(&ccnt, 5, 2000)) TEST_ASSERT(0, "timeout consumer");
+
+    TEST_ASSERT(pcnt == 5, "producer count should be 5");
+    TEST_ASSERT(ccnt == 5, "consumer count should be 5 (all takes succeeded)");
+    TEST_ASSERT(rtos_semaphore_get_count(&sem) == 0, "sem count should be 0");
+
+    rtos_semaphore_delete(&sem);
+    return true;
 }
+
+TEST_CASE_REGISTER(semaphore_binary, test_semaphore_binary);
 
 #endif

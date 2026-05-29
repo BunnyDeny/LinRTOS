@@ -1,129 +1,66 @@
 /*
- * Test: Scheduler lock
- *
- * 验证项：
- *  - rtos_sched_lock / rtos_sched_unlock 禁止/恢复抢占
- *  - 上锁期间高优先级任务就绪不会抢占
- *  - 解锁后高优先级任务立即抢占
- *  - 嵌套锁：多次 lock 后需要对应次数 unlock 才生效
+ * Test: Scheduler lock (single + nested)
+ * 验证: lock 期间高优先级任务不抢占, unlock 后立即抢占, 嵌套锁逐层释放
  */
-
 #include "linRTOS.h"
 #include "cli_io.h"
+#include "test_case.h"
 
 #if defined(ENABLE_TEST_CASES) && defined(TEST_SCHED_LOCK)
 
+extern uint32_t s_stk0[160];
 
-/* ============================================================
- * 静态资源
- * ============================================================ */
+#define TEST_ASSERT(cond, msg) do { \
+    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+} while (0)
 
-static uint32_t task_ctrl_stack[128];
-static uint32_t task_high_stack[128];
-
-static volatile uint32_t s_high_ran_tick = 0;
-
-/* ============================================================
- * 高优先级任务 —— 只运行一次，记录被调度到的 tick
- * ============================================================ */
-
-static void task_high(void *param)
+static bool test_sched_lock(void)
 {
-    (void)param;
-    s_high_ran_tick = rtos_get_tick_count();
-    sys_printk("[HIGH] ran at tick=%lu\r\n",
-                     (unsigned long)s_high_ran_tick);
-    rtos_task_delete(NULL);
-}
+    static volatile bool hi_ran = false;
 
-/* ============================================================
- * 控制任务 —— 测试单级锁和嵌套锁
- * ============================================================ */
+    sys_printk("[%s]\r\n", __func__);
 
-static void task_ctrl(void *param)
-{
-    (void)param;
-    uint32_t t;
-
-    /* ---------- 测试 1：单级锁 ---------- */
-    sys_printk("[CTRL] === test single lock ===\r\n");
-    s_high_ran_tick = 0;
-
-    rtos_sched_lock();
-    t = rtos_get_tick_count();
-    sys_printk("[CTRL] locked at tick=%lu\r\n", (unsigned long)t);
-
-    rtos_task_create(task_high, "high", task_high_stack, 128, NULL, 3, NULL);
-
-    if (s_high_ran_tick == 0) {
-    sys_printk("[CTRL] inside lock: high NOT ran (ok)\r\n");
-    } else {
-    sys_printk("[CTRL] inside lock: high ALREADY ran at %lu (BUG!)\r\n",
-                         (unsigned long)s_high_ran_tick);
+    void hi_task(void *p) {
+        (void)p;
+        hi_ran = true;
+        rtos_task_delete(NULL);
     }
+
+    /* ---- Test 1: single-level lock ---- */
+    hi_ran = false;
+    rtos_sched_lock();
+    rtos_task_create(hi_task, "hi", s_stk0, 160, NULL, 5, NULL);
+    rtos_task_delay(100);
+    TEST_ASSERT(!hi_ran, "single lock: hi task must NOT preempt");
 
     rtos_sched_unlock();
-    t = rtos_get_tick_count();
-    sys_printk("[CTRL] unlocked at tick=%lu high_ran_at=%lu\r\n",
-                     (unsigned long)t,
-                     (unsigned long)s_high_ran_tick);
+    rtos_task_delay(50);
+    TEST_ASSERT(hi_ran, "single unlock: hi task must preempt after unlock");
 
-    /* 等待空闲任务回收 task_high 的 TCB */
-    rtos_task_delay(2);
+    /* ---- Test 2: nested lock (3 levels) ---- */
+    hi_ran = false;
+    rtos_sched_lock();  /* lock depth: 1 */
+    rtos_sched_lock();  /* lock depth: 2 */
+    rtos_sched_lock();  /* lock depth: 3 */
+    rtos_task_create(hi_task, "hi2", s_stk0, 160, NULL, 5, NULL);
+    rtos_task_delay(50);
+    TEST_ASSERT(!hi_ran, "nested lock (3): hi must NOT preempt");
 
-    /* ---------- 测试 2：嵌套锁 ---------- */
-    sys_printk("[CTRL] === test nested lock ===\r\n");
-    s_high_ran_tick = 0;
+    rtos_sched_unlock();  /* depth: 3→2 */
+    rtos_task_delay(50);
+    TEST_ASSERT(!hi_ran, "nested: after 1st unlock (depth=2), hi must NOT preempt");
 
-    rtos_sched_lock();
-    rtos_sched_lock();  /* 嵌套 2 层 */
-    rtos_sched_lock();  /* 嵌套 3 层 */
+    rtos_sched_unlock();  /* depth: 2→1 */
+    rtos_task_delay(50);
+    TEST_ASSERT(!hi_ran, "nested: after 2nd unlock (depth=1), hi must NOT preempt");
 
-    t = rtos_get_tick_count();
-    sys_printk("[CTRL] nested 3 locks at tick=%lu\r\n", (unsigned long)t);
+    rtos_sched_unlock();  /* depth: 1→0 — real unlock */
+    rtos_task_delay(50);
+    TEST_ASSERT(hi_ran, "nested: after 3rd unlock (depth=0), hi must preempt");
 
-    rtos_task_create(task_high, "high2", task_high_stack, 128, NULL, 3, NULL);
-
-    rtos_sched_unlock();  /* 3 -> 2 */
-    if (s_high_ran_tick == 0) {
-    sys_printk("[CTRL] after 1st unlock: high NOT ran (ok, lock=2)\r\n");
-    } else {
-    sys_printk("[CTRL] after 1st unlock: high ALREADY ran (BUG!)\r\n");
-    }
-
-    rtos_sched_unlock();  /* 2 -> 1 */
-    if (s_high_ran_tick == 0) {
-    sys_printk("[CTRL] after 2nd unlock: high NOT ran (ok, lock=1)\r\n");
-    } else {
-    sys_printk("[CTRL] after 2nd unlock: high ALREADY ran (BUG!)\r\n");
-    }
-
-    rtos_sched_unlock();  /* 1 -> 0，真正释放 */
-    t = rtos_get_tick_count();
-    sys_printk("[CTRL] full unlocked at tick=%lu high_ran_at=%lu\r\n",
-                     (unsigned long)t,
-                     (unsigned long)s_high_ran_tick);
-
-    for (;;) {
-    sys_printk("[CTRL] idle heartbeat tick=%lu\r\n",
-                         (unsigned long)rtos_get_tick_count());
-        rtos_task_delay(1000);
-    }
+    return true;
 }
 
-/* ============================================================
- * 统一入口
- * ============================================================ */
+TEST_CASE_REGISTER(sched_lock, test_sched_lock);
 
-void app_entry_task(void *param)
-{
-    (void)param;
-
-    sys_printk("=== Test: Scheduler Lock ===\r\n");
-
-    rtos_task_create(task_ctrl, "ctrl", task_ctrl_stack, 128, NULL, 1, NULL);
-
-    rtos_task_delete(NULL);
-}
-
-#endif /* TEST_SCHED_LOCK */
+#endif

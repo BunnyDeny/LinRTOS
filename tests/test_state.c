@@ -1,86 +1,72 @@
 /*
  * Test: Task state query
- *
- * 验证项：
- *  - rtos_task_get_state    查询任务状态（RUNNING / READY / BLOCKED / DELETED）
- *  - rtos_task_get_priority 查询任务优先级
- *  - rtos_task_get_current  获取当前任务句柄
+ * 验证: rtos_task_get_state / get_priority / get_current
  */
-
 #include "linRTOS.h"
 #include "cli_io.h"
+#include "test_case.h"
 
 #if defined(ENABLE_TEST_CASES) && defined(TEST_STATE)
 
+extern uint32_t s_stk0[160];
+extern uint32_t s_stk1[160];
 
-/* ============================================================
- * 静态资源
- * ============================================================ */
+#define TEST_ASSERT(cond, msg) do { \
+    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+} while (0)
 
-static uint32_t task_query_stack[128];
-static uint32_t task_helper_stack[128];
-
-static rtos_task_handle_t h_helper = NULL;
-
-/* ============================================================
- * 查询任务 —— 查询自身与 helper 的状态
- * ============================================================ */
-
-static void task_query(void *param)
+static bool test_state(void)
 {
-    (void)param;
+    static rtos_task_handle_t h_helper;
+    static volatile rtos_task_state_t s_self_state;
+    static volatile uint32_t s_self_prio;
+    static volatile rtos_task_handle_t s_self_handle;
+    static volatile rtos_task_state_t s_helper_state1;
+    static volatile rtos_task_state_t s_helper_state2;
 
-    /* 查询自身状态（应为 RUNNING） */
-    rtos_task_state_t self_state = rtos_task_get_state(NULL);
-    uint32_t self_prio = rtos_task_get_priority(NULL);
-    rtos_task_handle_t self = rtos_task_get_current();
-    sys_printk("[QRY ] self  state=%d prio=%lu me=%p\r\n",
-                     (int)self_state, (unsigned long)self_prio, (void *)self);
+    sys_printk("[%s]\r\n", __func__);
+    h_helper = NULL;
 
-    /* 查询 helper 状态（应为 BLOCKED，因 helper 正在 delay） */
-    rtos_task_state_t helper_state = rtos_task_get_state(h_helper);
-    sys_printk("[QRY ] helper state=%d (expected BLOCKED=2)\r\n",
-                     (int)helper_state);
+    void task_query(void *p) {
+        (void)p;
+        s_self_state = rtos_task_get_state(NULL);
+        s_self_prio  = rtos_task_get_priority(NULL);
+        s_self_handle = rtos_task_get_current();
 
-    rtos_task_delay(500);
+        s_helper_state1 = rtos_task_get_state(h_helper);
+        rtos_task_delay(500);
+        s_helper_state2 = rtos_task_get_state(h_helper);
 
-    /* 再次查询 helper，仍在 delay 中 */
-    helper_state = rtos_task_get_state(h_helper);
-    sys_printk("[QRY ] helper state=%d after 500 ticks\r\n",
-                     (int)helper_state);
-
-        sys_printk("[QRY ] test done, entering idle\r\n");
-    for (;;) {
-        rtos_task_delay(1000);
+        rtos_task_delete(NULL);
     }
-}
 
-/* ============================================================
- * 辅助任务 —— 长时间 delay，供查询任务观察其 BLOCKED 状态
- * ============================================================ */
-
-static void task_helper(void *param)
-{
-    (void)param;
-    for (;;) {
-        rtos_task_delay(10000);
+    void task_helper(void *p) {
+        (void)p;
+        for (;;) rtos_task_delay(10000);
     }
+
+    /* helper must be higher priority than query:
+     * helper runs first, enters delay(10000) → BLOCKED,
+     * then query runs and can observe the BLOCKED state. */
+    rtos_task_create(task_helper, "helper", s_stk1, 160, NULL, 3, &h_helper);
+    rtos_task_create(task_query,  "query",  s_stk0, 160, NULL, 2, NULL);
+    rtos_task_delay(600);
+
+    sys_printk("  self state=%d prio=%lu handle=%p\r\n",
+               (int)s_self_state, (unsigned long)s_self_prio, (void *)s_self_handle);
+    sys_printk("  helper state1=%d state2=%d\r\n",
+               (int)s_helper_state1, (int)s_helper_state2);
+
+    TEST_ASSERT(s_self_state == RTOS_TASK_RUNNING, "self should be RUNNING(1)");
+    TEST_ASSERT(s_self_prio == 2, "self priority should be 2");
+    TEST_ASSERT(s_self_handle != NULL, "get_current should return non-NULL");
+    TEST_ASSERT(s_helper_state1 == RTOS_TASK_BLOCKED, "helper should be BLOCKED(2)");
+    TEST_ASSERT(s_helper_state2 == RTOS_TASK_BLOCKED, "helper still BLOCKED after 500");
+
+    rtos_task_delete(h_helper);
+    return true;
 }
 
-/* ============================================================
- * 统一入口
- * ============================================================ */
+TEST_CASE_REGISTER(state, test_state);
 
-void app_entry_task(void *param)
-{
-    (void)param;
-
-    sys_printk("=== Test: State Query ===\r\n");
-
-    rtos_task_create(task_query,  "query",  task_query_stack,  128, NULL, 2, NULL);
-    rtos_task_create(task_helper, "helper", task_helper_stack, 128, NULL, 1, &h_helper);
-
-    rtos_task_delete(NULL);
-}
-
-#endif /* TEST_STATE */
+#endif

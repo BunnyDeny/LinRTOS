@@ -1,73 +1,58 @@
 /*
  * Test: Stack free query
- *
- * 验证项：
- *  - rtos_task_get_stack_free 查询剩余栈空间
+ * 验证: rtos_task_get_stack_free 返回合理范围内的值
  */
-
 #include "linRTOS.h"
 #include "cli_io.h"
+#include "test_case.h"
 
 #if defined(ENABLE_TEST_CASES) && defined(TEST_STACK_FREE)
 
+extern uint32_t s_stk0[160];
+extern uint32_t s_stk1[160];
 
-/* ============================================================
- * 静态资源
- * ============================================================ */
+#define TEST_ASSERT(cond, msg) do { \
+    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+} while (0)
 
-static uint32_t task_a_stack[128];
-static uint32_t task_b_stack[128];
-
-/* ============================================================
- * 任务 A —— 周期性打印自身栈余量
- * ============================================================ */
-
-static void task_a(void *param)
+static bool test_stack_free(void)
 {
-    (void)param;
-    for (int i = 0; i < 3; i++) {
-        uint32_t free = rtos_task_get_stack_free(NULL);
-        sys_printk("[A   ] tick=%lu stack_free=%lu\r\n",
-                         (unsigned long)rtos_get_tick_count(),
-                         (unsigned long)free);
-        rtos_task_delay(200);
+    static volatile uint32_t free_a = 0;
+    static volatile uint32_t free_b = 0;
+
+    sys_printk("[%s]\r\n", __func__);
+    free_a = 0; free_b = 0;
+
+    void task_a(void *p) {
+        (void)p;
+        free_a = rtos_task_get_stack_free(NULL);
+        sys_printk("  A stack free=%lu words\r\n", (unsigned long)free_a);
+        rtos_task_delete(NULL);
     }
-    sys_printk("[A   ] stack_free test done\r\n");
-    rtos_task_delete(NULL);
-}
 
-/* ============================================================
- * 任务 B —— 周期性打印自身栈余量
- * ============================================================ */
-
-static void task_b(void *param)
-{
-    (void)param;
-    for (int i = 0; i < 3; i++) {
-        uint32_t free = rtos_task_get_stack_free(NULL);
-        sys_printk("[B   ] tick=%lu stack_free=%lu\r\n",
-                         (unsigned long)rtos_get_tick_count(),
-                         (unsigned long)free);
-        rtos_task_delay(200);
+    void task_b(void *p) {
+        (void)p;
+        free_b = rtos_task_get_stack_free(NULL);
+        sys_printk("  B stack free=%lu words\r\n", (unsigned long)free_b);
+        rtos_task_delete(NULL);
     }
-    sys_printk("[B   ] stack_free test done\r\n");
-    rtos_task_delete(NULL);
+
+    rtos_task_create(task_a, "a", s_stk0, 160, NULL, 1, NULL);
+    rtos_task_create(task_b, "b", s_stk1, 160, NULL, 2, NULL);
+    rtos_task_delay(100);
+
+    TEST_ASSERT(free_a > 0, "stack free A should be > 0");
+    TEST_ASSERT(free_a <= 160, "stack free A should be <= 160");
+    TEST_ASSERT(free_b > 0, "stack free B should be > 0");
+    TEST_ASSERT(free_b <= 160, "stack free B should be <= 160");
+
+    /* With stack depth 160 and minimal task body, expect >100 words free */
+    TEST_ASSERT(free_a > 100, "stack free A should be >100 (light usage)");
+    TEST_ASSERT(free_b > 100, "stack free B should be >100 (light usage)");
+
+    return true;
 }
 
-/* ============================================================
- * 统一入口
- * ============================================================ */
+TEST_CASE_REGISTER(stack_free, test_stack_free);
 
-void app_entry_task(void *param)
-{
-    (void)param;
-
-    sys_printk("=== Test: Stack Free ===\r\n");
-
-    rtos_task_create(task_a, "A", task_a_stack, 128, NULL, 1, NULL);
-    rtos_task_create(task_b, "B", task_b_stack, 128, NULL, 2, NULL);
-
-    rtos_task_delete(NULL);
-}
-
-#endif /* TEST_STACK_FREE */
+#endif

@@ -1,59 +1,70 @@
+/*
+ * Test: Semaphore ISR — give_from_isr → task take
+ * 验证: ISR 通过 give_from_isr 释放信号量，任务端阻塞等待，高优先级唤醒标志
+ */
 #include "linRTOS.h"
 #include "cli_io.h"
 #include "rtos_semaphore.h"
+#include "test_case.h"
 
 #if defined(ENABLE_TEST_CASES) && defined(TEST_SEMAPHORE_ISR)
 
-static struct rtos_queue s_sem;
-static volatile uint32_t s_sent = 0;
-static volatile bool s_done = false;
-static volatile bool s_woken = false;
-static uint32_t s_cstk[128];
+extern uint32_t s_stk0[160];
 
-/* 覆盖 SysTick_Handler，在 tick ISR 中 give_from_isr */
-void SysTick_Handler(void)
+extern struct rtos_queue s_isr_sem;
+extern volatile uint32_t s_isr_sem_sent;
+extern volatile bool     s_isr_sem_done;
+extern volatile bool     s_isr_sem_woken;
+extern volatile bool     s_isr_sem_active;
+
+#define TEST_ASSERT(cond, msg) do { \
+    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+} while (0)
+
+static bool test_semaphore_isr(void)
 {
-    rtos_tick_handler();
-    static uint32_t cnt = 0;
-    if ((++cnt % 200 == 0) && !s_done) {
-        bool hp = false;
-        if (rtos_semaphore_give_from_isr(&s_sem, &hp) == RTOS_OK) {
-            s_sent++;
-            if (hp) s_woken = true;
+    static volatile bool cons_done = false;
+
+    sys_printk("[%s]\r\n", __func__);
+
+    s_isr_sem_sent  = 0;
+    s_isr_sem_done  = false;
+    s_isr_sem_woken = false;
+    cons_done       = false;
+
+    void consumer(void *p) {
+        (void)p;
+        for (uint32_t i = 0; i < 5; i++) {
+            rtos_err_t e = rtos_semaphore_take(&s_isr_sem, RTOS_WAIT_FOREVER);
+            if (e == RTOS_OK) {
+                sys_printk("  sem-isr take %lu\r\n", (unsigned long)(i + 1));
+            }
         }
-    }
-}
-
-static void consumer(void *p)
-{
-    (void)p;
-    for (uint32_t i = 0; i < 5; i++) {
-        rtos_err_t e = rtos_semaphore_take(&s_sem, RTOS_WAIT_FOREVER);
-        if (e == RTOS_OK) {
-            sys_printk("[SEM-ISR] take #%lu OK\r\n", (unsigned long)(i + 1));
-        }
-    }
-    s_done = true;
-    rtos_task_delete(NULL);
-}
-
-void app_entry_task(void *param)
-{
-    (void)param;
-    sys_printk("=== Test: Semaphore ISR ===\r\n");
-
-    rtos_semaphore_init_binary(&s_sem);
-    rtos_task_create(consumer, "cons", s_cstk, 128, NULL, 5, NULL);
-
-    while (!s_done) {
-        rtos_task_delay(500);
-        sys_printk("[SEM-ISR] sent=%lu woken=%d\r\n",
-                   (unsigned long)s_sent, s_woken ? 1 : 0);
+        s_isr_sem_done = true;
+        cons_done = true;
+        rtos_task_delete(NULL);
     }
 
-    RTOS_ASSERT(s_sent >= 5);
-    sys_printk("=== Test: Semaphore ISR DONE ===\r\n");
-    rtos_task_delete(NULL);
+    rtos_semaphore_init_binary(&s_isr_sem);
+    rtos_task_create(consumer, "scons", s_stk0, 160, NULL, 5, NULL);
+
+    s_isr_sem_active = true;
+
+    uint32_t start = rtos_get_tick_count();
+    while (!cons_done) {
+        rtos_task_delay(100);
+        if ((int32_t)(rtos_get_tick_count() - start) > 5000) break;
+    }
+    s_isr_sem_active = false;
+
+    TEST_ASSERT(cons_done, "consumer should have taken all 5");
+    TEST_ASSERT(s_isr_sem_sent >= 5, "ISR should have given >= 5 times");
+    TEST_ASSERT(s_isr_sem_woken, "ISR should have woken a task");
+
+    rtos_semaphore_delete(&s_isr_sem);
+    return true;
 }
+
+TEST_CASE_REGISTER(semaphore_isr, test_semaphore_isr);
 
 #endif

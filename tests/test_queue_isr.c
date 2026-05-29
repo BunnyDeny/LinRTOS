@@ -1,55 +1,71 @@
+/*
+ * Test: Queue ISR — send_from_isr → task consume
+ * 验证: ISR 通过 send_from_isr 发送数据，任务端阻塞接收，高优先级唤醒标志
+ */
 #include "linRTOS.h"
 #include "cli_io.h"
+#include "test_case.h"
 
 #if defined(ENABLE_TEST_CASES) && defined(TEST_QUEUE_ISR)
 
-static struct rtos_queue s_q;
-static uint8_t s_buf[5 * sizeof(uint32_t)];
-static volatile bool s_done = false;
-static volatile uint32_t s_sent = 0;
-static volatile bool s_woken = false;
-static uint32_t s_cstk[128];
+extern uint32_t s_stk0[160];
 
-/* 覆盖 SysTick_Handler，在 tick ISR 中 send_from_isr */
-void SysTick_Handler(void)
+extern struct rtos_queue s_isr_q;
+extern uint8_t  s_isr_q_buf[];
+extern volatile uint32_t s_isr_q_sent;
+extern volatile bool     s_isr_q_done;
+extern volatile bool     s_isr_q_woken;
+extern volatile bool     s_isr_queue_active;
+
+#define TEST_ASSERT(cond, msg) do { \
+    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+} while (0)
+
+static bool test_queue_isr(void)
 {
-    rtos_tick_handler();
-    static uint32_t cnt = 0;
-    if ((++cnt % 200 == 0) && !s_done) {
-        uint32_t d = cnt;
-        bool hp = false;
-        if (rtos_queue_generic_send_from_isr(&s_q, &d, RTOS_QUEUE_SEND_BACK, &hp) == RTOS_OK) {
-            s_sent++;
-            if (hp) s_woken = true;
+    static volatile bool cons_done = false;
+
+    sys_printk("[%s]\r\n", __func__);
+
+    s_isr_q_sent  = 0;
+    s_isr_q_done  = false;
+    s_isr_q_woken = false;
+    cons_done     = false;
+
+    void consumer(void *p) {
+        (void)p;
+        for (uint32_t i = 0; i < 8; i++) {
+            uint32_t v;
+            rtos_err_t e = rtos_queue_recv(&s_isr_q, &v, RTOS_WAIT_FOREVER);
+            if (e == RTOS_OK) {
+                sys_printk("  q-isr recv %lu\r\n", (unsigned long)v);
+            }
         }
+        s_isr_q_done = true;
+        cons_done = true;
+        rtos_task_delete(NULL);
     }
+
+    rtos_queue_init(&s_isr_q, s_isr_q_buf, 5, sizeof(uint32_t));
+    rtos_task_create(consumer, "qcons", s_stk0, 160, NULL, 5, NULL);
+
+    s_isr_queue_active = true;
+
+    uint32_t start = rtos_get_tick_count();
+    while (!cons_done) {
+        rtos_task_delay(100);
+        if ((int32_t)(rtos_get_tick_count() - start) > 5000) break;
+    }
+    s_isr_queue_active = false;
+
+    TEST_ASSERT(cons_done, "consumer should have received all 8 items");
+    TEST_ASSERT(s_isr_q_sent >= 8, "ISR should have sent >= 8 items");
+    TEST_ASSERT(s_isr_q_woken, "ISR should have woken a task");
+
+    rtos_queue_delete(&s_isr_q);
+    return true;
 }
 
-static void consumer(void *p)
-{
-    (void)p;
-    for (uint32_t i = 0; i < 8; i++) {
-        uint32_t v;
-        if (rtos_queue_recv(&s_q, &v, RTOS_WAIT_FOREVER) == RTOS_OK) {
-            sys_printk("[ISR] recv #%lu data=%lu\r\n", (unsigned long)(i+1), (unsigned long)v);
-        }
-    }
-    s_done = true;
-    rtos_task_delete(NULL);
-}
-
-void app_entry_task(void *param)
-{
-    (void)param;
-    sys_printk("=== Test: Queue ISR ===\r\n");
-    rtos_queue_init(&s_q, s_buf, 5, sizeof(uint32_t));
-    rtos_task_create(consumer, "cons", s_cstk, 128, NULL, 5, NULL);
-    while (!s_done) {
-        rtos_task_delay(500);
-        sys_printk("[ISR] sent=%lu woken=%d\r\n", (unsigned long)s_sent, s_woken ? 1 : 0);
-    }
-    sys_printk("=== Test: Queue ISR DONE ===\r\n");
-    rtos_task_delete(NULL);
-}
+TEST_CASE_REGISTER(queue_isr, test_queue_isr);
 
 #endif

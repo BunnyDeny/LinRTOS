@@ -186,6 +186,15 @@ SECTIONS
     . = ALIGN(4);
   } >FLASH
 
+  .test_cases :
+  {
+    . = ALIGN(4);
+    KEEP(*(.test_cases.0.start))
+    KEEP(*(.test_cases.1))
+    KEEP(*(.test_cases.1.end))
+    . = ALIGN(4);
+  } >FLASH
+
   .ARM.extab (READONLY) : /* The "READONLY" keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {
     . = ALIGN(4);

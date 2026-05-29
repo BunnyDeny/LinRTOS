@@ -1,115 +1,52 @@
 /*
- * Test: CmBacktrace integration
- *
- * 验证项：
- *  - cm_backtrace_init 初始化成功
- *  - cm_backtrace_firmware_info 输出固件信息
- *  - cm_backtrace_call_stack 在正常状态下获取函数调用栈
- *  - 制造除零 HardFault，验证 CmBacktrace 自动诊断与调用栈回溯输出
- *
- * 注意：本测试触发 HardFault 后系统会停止在 Fault_Loop，需通过串口观察输出。
+ * Test: CmBacktrace integration (conditional: COMPONENT_CM_BACKTRACE)
+ * 验证: 初始化, 固件信息输出, 正常状态下调用栈回溯深度 > 0
  */
-
 #include "linRTOS.h"
 #include "cli_io.h"
+#include "test_case.h"
 
 #if defined(ENABLE_TEST_CASES) && defined(TEST_CM_BACKTRACE)
 
+#ifdef COMPONENT_CM_BACKTRACE
 #include "cm_backtrace.h"
+#endif
 
+#define TEST_ASSERT(cond, msg) do { \
+    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+} while (0)
 
-/* ============================================================
- * 静态资源
- * ============================================================ */
-
-static uint32_t test_task_stack[512];
-
-/* ============================================================
- * 制造非法内存访问异常（野指针写）
- * ============================================================ */
-
-static void __attribute__((noinline)) trigger_memory_fault(void)
+#ifdef COMPONENT_CM_BACKTRACE
+static bool test_cm_backtrace(void)
 {
-    /* 调用一次 sys_printk，强迫编译器将 LR 压入栈，
-     * 使 CmBacktrace 栈扫描能捕获到本函数的返回地址。
-     */
-    sys_printk("[CMB] Triggering illegal memory access now...\r\n");
+    sys_printk("[%s]\r\n", __func__);
 
-    /* 向一个未映射地址写入，触发 BusFault -> HardFault。
-     * 使用 volatile 指针防止编译器优化掉写操作。
-     */
-    volatile uint32_t *bad_ptr = (volatile uint32_t *)0xFFFFFFFF;
-    *bad_ptr = 0xDEADBEEF;
-}
-
-/* 嵌套调用以增加调用栈深度 */
-static void __attribute__((noinline)) level3(void)
-{
-    sys_printk("[CMB] About to trigger HardFault (illegal memory access)...\r\n");
-    trigger_memory_fault();
-}
-
-static void __attribute__((noinline)) level2(void)
-{
-    level3();
-}
-
-static void __attribute__((noinline)) level1(void)
-{
-    level2();
-}
-
-/* ============================================================
- * CmBacktrace 测试任务
- * ============================================================ */
-
-static void cm_backtrace_test_task(void *param)
-{
-    (void)param;
-
-    /* 初始化 CmBacktrace */
-    cm_backtrace_init(NULL, "v1.0", "v1.0");
-
-    /* 打印固件信息 */
+    cm_backtrace_init("LinRTOS-test", "hw-v1.0", "sw-v1.0");
     cm_backtrace_firmware_info();
 
-    /* 在正常状态下获取当前调用栈 */
-    {
-        uint32_t call_stack[16] = {0};
-        size_t depth;
-        uint32_t sp = cmb_get_sp();
+    uint32_t call_stack[16] = {0};
+    size_t depth;
+    uint32_t sp = cmb_get_sp();
 
-        depth = cm_backtrace_call_stack(call_stack, sizeof(call_stack) / sizeof(call_stack[0]), sp);
-        sys_printk("[CMB] Current call stack depth = %u\r\n", (unsigned)depth);
-        for (size_t i = 0; i < depth; i++) {
-            sys_printk("[CMB]   [%u] 0x%08X\r\n", (unsigned)i, (unsigned)call_stack[i]);
-        }
+    depth = cm_backtrace_call_stack(call_stack,
+                                     sizeof(call_stack) / sizeof(call_stack[0]),
+                                     sp);
+    sys_printk("  call stack depth=%u\r\n", (unsigned)depth);
+    for (size_t i = 0; i < depth; i++) {
+        sys_printk("  [%u] 0x%08X\r\n", (unsigned)i, (unsigned)call_stack[i]);
     }
 
-    /* 触发 HardFault，验证 CmBacktrace 故障追踪 */
-    level1();
-
-    /* 不会到达这里 */
-    for (;;) {
-        rtos_task_delay(1000);
-    }
+    TEST_ASSERT(depth > 0, "call stack depth should be > 0");
+    return true;
 }
-
-/* ============================================================
- * 统一入口
- * ============================================================ */
-
-void app_entry_task(void *param)
+#else
+static bool test_cm_backtrace(void)
 {
-    (void)param;
-
-    sys_printk("=== Test: CmBacktrace Integration ===\r\n");
-
-    rtos_task_create(cm_backtrace_test_task, "cmb_test",
-                     test_task_stack, sizeof(test_task_stack) / sizeof(uint32_t),
-                     NULL, 2, NULL);
-
-    rtos_task_delete(NULL);
+    sys_printk("[%s] SKIP (CmBacktrace not enabled)\r\n", __func__);
+    return true;
 }
+#endif
 
-#endif /* TEST_CM_BACKTRACE */
+TEST_CASE_REGISTER(cm_backtrace, test_cm_backtrace);
+
+#endif

@@ -1,71 +1,92 @@
+/*
+ * Test: Counting semaphore — multi producer
+ * 验证: init_counting, multi-give, multi-take, max-count boundary
+ */
 #include "linRTOS.h"
 #include "cli_io.h"
 #include "rtos_semaphore.h"
+#include "test_case.h"
 
 #if defined(ENABLE_TEST_CASES) && defined(TEST_SEMAPHORE_COUNTING)
 
-static struct rtos_queue s_sem;
-static uint32_t s_p1stk[128];
-static uint32_t s_p2stk[128];
-static uint32_t s_cstk[128];
-static volatile uint32_t s_pcnt = 0;
-static volatile uint32_t s_ccnt = 0;
+extern uint32_t s_stk0[160];
+extern uint32_t s_stk1[160];
+extern uint32_t s_stk2[160];
 
-static void producer1(void *p)
+#define TEST_ASSERT(cond, msg) do { \
+    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+} while (0)
+
+static bool wait_for_val(volatile uint32_t *f, uint32_t e, uint32_t to)
 {
-    (void)p;
-    for (uint32_t i = 0; i < 3; i++) {
-        rtos_task_delay(20);
-        rtos_semaphore_give(&s_sem);
-        s_pcnt++;
-        sys_printk("[SEM-CNT] P1 produced\r\n");
+    uint32_t start = rtos_get_tick_count();
+    while (*f < e) {
+        if ((int32_t)(rtos_get_tick_count() - start) >= (int32_t)to) return false;
+        rtos_task_delay(10);
     }
-    rtos_task_delete(NULL);
+    return true;
 }
 
-static void producer2(void *p)
+static bool test_semaphore_counting(void)
 {
-    (void)p;
-    for (uint32_t i = 0; i < 3; i++) {
-        rtos_task_delay(25);
-        rtos_semaphore_give(&s_sem);
-        s_pcnt++;
-        sys_printk("[SEM-CNT] P2 produced\r\n");
-    }
-    rtos_task_delete(NULL);
-}
+    static struct rtos_queue sem;
+    static volatile uint32_t pcnt, ccnt;
 
-static void consumer(void *p)
-{
-    (void)p;
-    for (uint32_t i = 0; i < 6; i++) {
-        rtos_semaphore_take(&s_sem, RTOS_WAIT_FOREVER);
-        s_ccnt++;
-        sys_printk("[SEM-CNT] consumed #%lu\r\n", (unsigned long)(i + 1));
-    }
-    rtos_task_delete(NULL);
-}
+    sys_printk("[%s]\r\n", __func__);
+    pcnt = 0; ccnt = 0;
 
-void app_entry_task(void *param)
-{
-    (void)param;
-    sys_printk("=== Test: Semaphore Counting ===\r\n");
+    void p1(void *p) {
+        (void)p;
+        for (int i = 0; i < 3; i++) {
+            rtos_task_delay(20);
+            rtos_semaphore_give(&sem);
+            pcnt++;
+        }
+        rtos_task_delete(NULL);
+    }
+
+    void p2(void *p) {
+        (void)p;
+        for (int i = 0; i < 3; i++) {
+            rtos_task_delay(25);
+            rtos_semaphore_give(&sem);
+            pcnt++;
+        }
+        rtos_task_delete(NULL);
+    }
+
+    void consumer(void *p) {
+        (void)p;
+        for (int i = 0; i < 6; i++) {
+            rtos_err_t e = rtos_semaphore_take(&sem, RTOS_WAIT_FOREVER);
+            if (e == RTOS_OK) ccnt++;
+        }
+        rtos_task_delete(NULL);
+    }
 
     /* max=5, initial=0 */
-    rtos_semaphore_init_counting(&s_sem, 5, 0);
+    rtos_semaphore_init_counting(&sem, 5, 0);
+    TEST_ASSERT(rtos_semaphore_get_count(&sem) == 0, "initial count should be 0");
 
-    rtos_task_create(consumer, "cons", s_cstk, 128, NULL, 5, NULL);
-    rtos_task_create(producer1, "p1", s_p1stk, 128, NULL, 2, NULL);
-    rtos_task_create(producer2, "p2", s_p2stk, 128, NULL, 3, NULL);
+    rtos_task_create(consumer, "cons", s_stk2, 160, NULL, 5, NULL);
+    rtos_task_create(p1, "p1", s_stk0, 160, NULL, 2, NULL);
+    rtos_task_create(p2, "p2", s_stk1, 160, NULL, 3, NULL);
 
-    while (s_pcnt < 6 || s_ccnt < 6) {
-        rtos_task_delay(50);
-    }
+    if (!wait_for_val(&pcnt, 6, 2000)) TEST_ASSERT(0, "timeout producers");
+    if (!wait_for_val(&ccnt, 6, 2000)) TEST_ASSERT(0, "timeout consumer");
 
-    RTOS_ASSERT(s_pcnt == 6);
-    RTOS_ASSERT(s_ccnt == 6);
-    sys_printk("=== Test: Semaphore Counting DONE ===\r\n");
-    rtos_task_delete(NULL);
+    TEST_ASSERT(pcnt == 6, "producer count should be 6");
+    TEST_ASSERT(ccnt == 6, "consumer count should be 6 (all takes succeeded)");
+
+    /* verify max-count: try to give beyond max, should fail */
+    for (int i = 0; i < 5; i++) rtos_semaphore_give(&sem);
+    rtos_err_t e = rtos_semaphore_give(&sem);
+    TEST_ASSERT(e == RTOS_ERR_RESOURCE, "give beyond max should fail");
+
+    rtos_semaphore_delete(&sem);
+    return true;
 }
+
+TEST_CASE_REGISTER(semaphore_counting, test_semaphore_counting);
 
 #endif

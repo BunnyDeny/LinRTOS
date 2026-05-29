@@ -1,89 +1,101 @@
+/*
+ * Test: Mutex basic — take/give/ownership
+ * 验证: 互斥保护、holder 查询、非持有者 give 拒绝
+ */
 #include "linRTOS.h"
 #include "cli_io.h"
 #include "rtos_mutex.h"
+#include "test_case.h"
 
 #if defined(ENABLE_TEST_CASES) && defined(TEST_MUTEX_BASIC)
 
-static struct rtos_queue s_mtx;
-static volatile uint32_t s_shared = 0;
-static uint32_t s_a_stk[128];
-static uint32_t s_b_stk[128];
-static volatile uint32_t s_a_done = 0;
-static volatile uint32_t s_b_done = 0;
+extern uint32_t s_stk0[160];
+extern uint32_t s_stk1[160];
 
-static void task_a(void *p)
+#define TEST_ASSERT(cond, msg) do { \
+    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+} while (0)
+
+static bool wait_for_val(volatile uint32_t *flag, uint32_t expect, uint32_t to)
 {
-    (void)p;
-    for (uint32_t i = 0; i < 5; i++) {
-        rtos_mutex_take(&s_mtx, RTOS_WAIT_FOREVER);
-        uint32_t tmp = s_shared;
-        rtos_task_delay(10);  /* 模拟临界区耗时 */
-        s_shared = tmp + 1;
-        rtos_mutex_give(&s_mtx);
-        sys_printk("[MUTEX] task A inc shared=%lu\r\n", (unsigned long)s_shared);
+    uint32_t start = rtos_get_tick_count();
+    while (*flag < expect) {
+        if ((int32_t)(rtos_get_tick_count() - start) >= (int32_t)to) return false;
+        rtos_task_delay(10);
     }
-    s_a_done = 1;
-    rtos_task_delete(NULL);
+    return true;
 }
 
-static void task_b(void *p)
+static bool test_mutex_basic(void)
 {
-    (void)p;
-    for (uint32_t i = 0; i < 5; i++) {
-        rtos_mutex_take(&s_mtx, RTOS_WAIT_FOREVER);
-        uint32_t tmp = s_shared;
-        rtos_task_delay(15);  /* 模拟临界区耗时 */
-        s_shared = tmp + 1;
-        rtos_mutex_give(&s_mtx);
-        sys_printk("[MUTEX] task B inc shared=%lu\r\n", (unsigned long)s_shared);
-    }
-    s_b_done = 1;
-    rtos_task_delete(NULL);
-}
+    static struct rtos_queue mtx;
+    static volatile uint32_t s_shared, a_done, b_done;
+    static volatile rtos_err_t bad_err;
 
-static volatile rtos_err_t s_bad_err = RTOS_OK;
-static uint32_t s_bad_stk[128];
+    sys_printk("[%s]\r\n", __func__);
+    s_shared = 0; a_done = 0; b_done = 0; bad_err = RTOS_OK;
 
-static void bad_giver(void *p)
-{
-    (void)p;
-    s_bad_err = rtos_mutex_give(&s_mtx);
-    rtos_task_delete(NULL);
-}
-
-void app_entry_task(void *param)
-{
-    (void)param;
-    sys_printk("=== Test: Mutex Basic ===\r\n");
-
-    rtos_mutex_init(&s_mtx);
-    s_shared = 0;
-
-    /* 两个任务并发修改共享变量，验证互斥保护 */
-    rtos_task_create(task_a, "A", s_a_stk, 128, NULL, 3, NULL);
-    rtos_task_create(task_b, "B", s_b_stk, 128, NULL, 4, NULL);
-
-    while (!s_a_done || !s_b_done) {
-        rtos_task_delay(50);
+    void task_a(void *p) {
+        (void)p;
+        for (int i = 0; i < 5; i++) {
+            rtos_err_t e = rtos_mutex_take(&mtx, RTOS_WAIT_FOREVER);
+            if (e != RTOS_OK) return;
+            uint32_t tmp = s_shared;
+            rtos_task_delay(10);
+            s_shared = tmp + 1;
+            rtos_mutex_give(&mtx);
+        }
+        a_done = 1;
+        rtos_task_delete(NULL);
     }
 
-    RTOS_ASSERT(s_shared == 10);
-    sys_printk("[MUTEX] final shared=%lu (expect 10)\r\n", (unsigned long)s_shared);
+    void task_b(void *p) {
+        (void)p;
+        for (int i = 0; i < 5; i++) {
+            rtos_err_t e = rtos_mutex_take(&mtx, RTOS_WAIT_FOREVER);
+            if (e != RTOS_OK) return;
+            uint32_t tmp = s_shared;
+            rtos_task_delay(15);
+            s_shared = tmp + 1;
+            rtos_mutex_give(&mtx);
+        }
+        b_done = 1;
+        rtos_task_delete(NULL);
+    }
 
-    /* 验证非持有者 give 被拒绝 */
-    rtos_err_t e = rtos_mutex_take(&s_mtx, RTOS_DONT_WAIT);
-    RTOS_ASSERT(e == RTOS_OK);
-    RTOS_ASSERT(rtos_mutex_get_holder(&s_mtx) == rtos_task_get_current());
+    void bad_giver(void *p) {
+        (void)p;
+        bad_err = rtos_mutex_give(&mtx);
+        rtos_task_delete(NULL);
+    }
 
-    rtos_task_create(bad_giver, "bad", s_bad_stk, 128, NULL, 5, NULL);
+    rtos_mutex_init(&mtx);
+
+    rtos_task_create(task_a, "a", s_stk0, 160, NULL, 3, NULL);
+    rtos_task_create(task_b, "b", s_stk1, 160, NULL, 4, NULL);
+    if (!wait_for_val(&a_done, 1, 2000)) { TEST_ASSERT(0, "timeout A"); }
+    if (!wait_for_val(&b_done, 1, 2000)) { TEST_ASSERT(0, "timeout B"); }
+
+    TEST_ASSERT(s_shared == 10, "mutex protect: shared should be 10");
+
+    /* verify ownership */
+    rtos_err_t e = rtos_mutex_take(&mtx, RTOS_DONT_WAIT);
+    TEST_ASSERT(e == RTOS_OK, "re-take mutex OK");
+    TEST_ASSERT(rtos_mutex_get_holder(&mtx) == rtos_task_get_current(),
+                "holder should be self");
+
+    /* non-holder give must be rejected */
+    rtos_task_create(bad_giver, "bad", s_stk1, 160, NULL, 5, NULL);
     rtos_task_delay(50);
-    RTOS_ASSERT(s_bad_err == RTOS_ERR_STATE);
-    sys_printk("[MUTEX] bad giver rejected OK\r\n");
+    TEST_ASSERT(bad_err == RTOS_ERR_STATE, "non-holder give must return ERR_STATE");
 
-    rtos_mutex_give(&s_mtx);
-    rtos_mutex_delete(&s_mtx);
-    sys_printk("=== Test: Mutex Basic DONE ===\r\n");
-    rtos_task_delete(NULL);
+    rtos_mutex_give(&mtx);
+    TEST_ASSERT(rtos_mutex_get_holder(&mtx) == NULL, "holder should be NULL after give");
+
+    rtos_mutex_delete(&mtx);
+    return true;
 }
+
+TEST_CASE_REGISTER(mutex_basic, test_mutex_basic);
 
 #endif

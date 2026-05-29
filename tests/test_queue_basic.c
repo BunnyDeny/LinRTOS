@@ -1,104 +1,119 @@
+/*
+ * Test: Queue basic API
+ * 验证: init, send/recv FIFO, send_to_front, overwrite, peek, full/empty errors
+ */
 #include "linRTOS.h"
 #include "cli_io.h"
+#include "test_case.h"
 
 #if defined(ENABLE_TEST_CASES) && defined(TEST_QUEUE_BASIC)
 
-static struct rtos_queue s_q;
-static uint8_t s_buf[5 * sizeof(uint32_t)];
-static uint32_t s_pstk[128];
-static uint32_t s_cstk[128];
-static volatile uint32_t s_pcnt = 0;
-static volatile uint32_t s_ccnt = 0;
+extern uint32_t s_stk0[160];
+extern uint32_t s_stk1[160];
 
-static void producer(void *p)
+#define TEST_ASSERT(cond, msg) do { \
+    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+} while (0)
+
+static bool wait_for_val(volatile uint32_t *f, uint32_t e, uint32_t to)
 {
-    (void)p;
-    for (uint32_t i = 0; i < 5; i++) {
-        rtos_err_t e = rtos_queue_send(&s_q, &i, RTOS_WAIT_FOREVER);
-        RTOS_ASSERT(e == RTOS_OK);
-        s_pcnt++;
-        sys_printk("[BASIC] sent %lu\r\n", (unsigned long)i);
+    uint32_t start = rtos_get_tick_count();
+    while (*f < e) {
+        if ((int32_t)(rtos_get_tick_count() - start) >= (int32_t)to) return false;
+        rtos_task_delay(10);
     }
-    rtos_task_delete(NULL);
+    return true;
 }
 
-static void consumer(void *p)
+static bool test_queue_basic(void)
 {
-    (void)p;
-    for (uint32_t i = 0; i < 5; i++) {
-        uint32_t v;
-        rtos_err_t e = rtos_queue_recv(&s_q, &v, RTOS_WAIT_FOREVER);
-        RTOS_ASSERT(e == RTOS_OK);
-        RTOS_ASSERT(v == i);
-        s_ccnt++;
-        sys_printk("[BASIC] recv %lu\r\n", (unsigned long)v);
-    }
-    rtos_task_delete(NULL);
-}
+    static struct rtos_queue q, q1;
+    static uint8_t buf[5 * sizeof(uint32_t)];
+    static uint8_t buf1[1 * sizeof(uint32_t)];
+    static volatile uint32_t pcnt, ccnt;
+    static volatile int fifo_err = 0;
 
-void app_entry_task(void *param)
-{
-    (void)param;
-    sys_printk("=== Test: Queue Basic ===\r\n");
+    sys_printk("[%s]\r\n", __func__);
+    pcnt = 0; ccnt = 0; fifo_err = 0;
+
+    void producer(void *p) {
+        (void)p;
+        for (uint32_t i = 0; i < 5; i++) {
+            rtos_err_t e = rtos_queue_send(&q, &i, RTOS_WAIT_FOREVER);
+            if (e == RTOS_OK) pcnt++;
+        }
+        rtos_task_delete(NULL);
+    }
+
+    void consumer(void *p) {
+        (void)p;
+        for (uint32_t i = 0; i < 5; i++) {
+            uint32_t v;
+            rtos_err_t e = rtos_queue_recv(&q, &v, RTOS_WAIT_FOREVER);
+            if (e == RTOS_OK) {
+                ccnt++;
+                if (v != i) fifo_err = 1;
+            }
+        }
+        rtos_task_delete(NULL);
+    }
 
     /* 1. init */
-    rtos_err_t err = rtos_queue_init(&s_q, s_buf, 5, sizeof(uint32_t));
-    RTOS_ASSERT(err == RTOS_OK);
-    RTOS_ASSERT(rtos_queue_is_empty(&s_q));
-    RTOS_ASSERT(rtos_queue_spaces_available(&s_q) == 5);
-    sys_printk("[BASIC] init OK\r\n");
+    rtos_err_t e = rtos_queue_init(&q, buf, 5, sizeof(uint32_t));
+    TEST_ASSERT(e == RTOS_OK, "queue init");
+    TEST_ASSERT(rtos_queue_is_empty(&q), "should be empty");
+    TEST_ASSERT(!rtos_queue_is_full(&q), "should not be full");
+    TEST_ASSERT(rtos_queue_spaces_available(&q) == 5, "spaces should be 5");
+    TEST_ASSERT(rtos_queue_messages_waiting(&q) == 0, "messages should be 0");
 
-    /* 2. 多任务 FIFO 生产者-消费者 */
-    rtos_task_create(producer, "prod", s_pstk, 128, NULL, 2, NULL);
-    rtos_task_create(consumer, "cons", s_cstk, 128, NULL, 5, NULL);
+    /* 2. FIFO producer-consumer */
+    rtos_task_create(producer, "prod", s_stk0, 160, NULL, 2, NULL);
+    rtos_task_create(consumer, "cons", s_stk1, 160, NULL, 5, NULL);
+    if (!wait_for_val(&pcnt, 5, 2000)) TEST_ASSERT(0, "timeout producer");
+    if (!wait_for_val(&ccnt, 5, 2000)) TEST_ASSERT(0, "timeout consumer");
+    TEST_ASSERT(rtos_queue_is_empty(&q), "should be empty after drain");
+    TEST_ASSERT(!fifo_err, "FIFO order should be correct");
 
-    while (s_pcnt < 5 || s_ccnt < 5) rtos_task_delay(50);
-    RTOS_ASSERT(rtos_queue_is_empty(&s_q));
-    sys_printk("[BASIC] FIFO producer-consumer OK\r\n");
+    /* 3. send_to_front — verify reverse order */
+    uint32_t a = 10, b = 20, v;
+    rtos_queue_send(&q, &a, RTOS_DONT_WAIT);
+    rtos_queue_send_to_front(&q, &b, RTOS_DONT_WAIT);
+    rtos_queue_recv(&q, &v, RTOS_DONT_WAIT);
+    TEST_ASSERT(v == 20, "front: first should be 20");
+    rtos_queue_recv(&q, &v, RTOS_DONT_WAIT);
+    TEST_ASSERT(v == 10, "front: second should be 10");
 
-    /* 3. send_to_front */
-    uint32_t a = 10, b = 20;
-    rtos_queue_send(&s_q, &a, RTOS_DONT_WAIT);
-    rtos_queue_send_to_front(&s_q, &b, RTOS_DONT_WAIT);
-    uint32_t v;
-    rtos_queue_recv(&s_q, &v, RTOS_DONT_WAIT); RTOS_ASSERT(v == 20);
-    rtos_queue_recv(&s_q, &v, RTOS_DONT_WAIT); RTOS_ASSERT(v == 10);
-    sys_printk("[BASIC] front OK\r\n");
-
-    /* 4. overwrite (length must be 1) */
-    static struct rtos_queue s_q1;
-    static uint8_t s_buf1[1 * sizeof(uint32_t)];
-    rtos_queue_init(&s_q1, s_buf1, 1, sizeof(uint32_t));
+    /* 4. overwrite */
+    rtos_queue_init(&q1, buf1, 1, sizeof(uint32_t));
     uint32_t x = 100;
-    rtos_queue_send(&s_q1, &x, RTOS_DONT_WAIT);
+    rtos_queue_send(&q1, &x, RTOS_DONT_WAIT);
     x = 200;
-    rtos_queue_overwrite(&s_q1, &x);
-    rtos_queue_recv(&s_q1, &v, RTOS_DONT_WAIT);
-    RTOS_ASSERT(v == 200);
-    sys_printk("[BASIC] overwrite OK\r\n");
+    rtos_queue_overwrite(&q1, &x);
+    rtos_queue_recv(&q1, &v, RTOS_DONT_WAIT);
+    TEST_ASSERT(v == 200, "overwrite should replace value");
 
-    /* 5. peek */
+    /* 5. peek — read without removing */
     x = 300;
-    rtos_queue_send(&s_q, &x, RTOS_DONT_WAIT);
-    rtos_queue_peek(&s_q, &v, RTOS_DONT_WAIT);
-    RTOS_ASSERT(v == 300);
-    RTOS_ASSERT(rtos_queue_messages_waiting(&s_q) == 1);
-    rtos_queue_recv(&s_q, &v, RTOS_DONT_WAIT);
-    RTOS_ASSERT(v == 300);
-    sys_printk("[BASIC] peek OK\r\n");
+    rtos_queue_send(&q, &x, RTOS_DONT_WAIT);
+    rtos_queue_peek(&q, &v, RTOS_DONT_WAIT);
+    TEST_ASSERT(v == 300, "peek value should be 300");
+    TEST_ASSERT(rtos_queue_messages_waiting(&q) == 1, "peek should not remove");
+    rtos_queue_recv(&q, &v, RTOS_DONT_WAIT);
+    TEST_ASSERT(v == 300, "real recv value should be 300");
 
-    /* 6. non-blocking err */
-    for (uint32_t i = 0; i < 5; i++) rtos_queue_send(&s_q, &i, RTOS_DONT_WAIT);
-    err = rtos_queue_send(&s_q, &x, RTOS_DONT_WAIT);
-    RTOS_ASSERT(err == RTOS_ERR_RESOURCE);
-    for (uint32_t i = 0; i < 5; i++) rtos_queue_recv(&s_q, &v, RTOS_DONT_WAIT);
-    err = rtos_queue_recv(&s_q, &v, RTOS_DONT_WAIT);
-    RTOS_ASSERT(err == RTOS_ERR_RESOURCE);
-    sys_printk("[BASIC] err-on-full-empty OK\r\n");
+    /* 6. full-send / empty-recv → ERR_RESOURCE */
+    for (uint32_t i = 0; i < 5; i++) rtos_queue_send(&q, &i, RTOS_DONT_WAIT);
+    TEST_ASSERT(rtos_queue_is_full(&q), "should be full");
+    e = rtos_queue_send(&q, &x, RTOS_DONT_WAIT);
+    TEST_ASSERT(e == RTOS_ERR_RESOURCE, "send to full queue must return ERR_RESOURCE");
+    for (uint32_t i = 0; i < 5; i++) { rtos_queue_recv(&q, &v, RTOS_DONT_WAIT); }
+    e = rtos_queue_recv(&q, &v, RTOS_DONT_WAIT);
+    TEST_ASSERT(e == RTOS_ERR_RESOURCE, "recv from empty must return ERR_RESOURCE");
 
-    rtos_queue_delete(&s_q);
-    sys_printk("=== Test: Queue Basic DONE ===\r\n");
-    rtos_task_delete(NULL);
+    rtos_queue_delete(&q);
+    return true;
 }
+
+TEST_CASE_REGISTER(queue_basic, test_queue_basic);
 
 #endif

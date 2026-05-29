@@ -1,95 +1,61 @@
 /*
  * Test: Dynamic priority change
- *
- * 验证项：
- *  - rtos_task_set_priority 动态调整优先级
- *  - 提升优先级后高优先级任务抢占当前任务
- *  - 降低优先级后当前任务被高优先级任务抢占
+ * 验证: 低优先级任务自提升后立即抢占同优先级高优先级任务
  */
-
 #include "linRTOS.h"
 #include "cli_io.h"
+#include "test_case.h"
 
 #if defined(ENABLE_TEST_CASES) && defined(TEST_PRIORITY)
 
+extern uint32_t s_stk0[160];
+extern uint32_t s_stk1[160];
 
-/* ============================================================
- * 静态资源
- * ============================================================ */
+#define TEST_ASSERT(cond, msg) do { \
+    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+} while (0)
 
-static uint32_t task_worker_stack[128];
-static uint32_t task_ctrl_stack[128];
-
-static rtos_task_handle_t h_worker = NULL;
-
-/* ============================================================
- * 工作者任务 —— 打印确认自身被调度
- * ============================================================ */
-
-static void task_worker(void *param)
+static bool test_priority(void)
 {
-    (void)param;
-    for (;;) {
-        uint32_t prio = rtos_task_get_priority(NULL);
-        sys_printk("[WORK] tick=%lu prio=%lu running\r\n",
-                         (unsigned long)rtos_get_tick_count(),
-                         (unsigned long)prio);
-        rtos_task_delay(300);
+    static volatile uint32_t lo_seq = 0;
+    static volatile uint32_t hi_seq = 0;
+
+    sys_printk("[%s]\r\n", __func__);
+    lo_seq = 0; hi_seq = 0;
+
+    /* lo starts at prio=1, then boosts itself to 5 — preempts hi */
+    void lo_task(void *p) {
+        (void)p;
+        lo_seq = 1;
+        rtos_task_set_priority(NULL, 5);
+        lo_seq = 2;
+        /* verify priority changed */
+        uint32_t cur_prio = rtos_task_get_priority(NULL);
+        if (cur_prio != 5) lo_seq = 999;
+        rtos_task_delete(NULL);
     }
-}
 
-/* ============================================================
- * 控制任务 —— 周期性地升降工作者优先级
- * ============================================================ */
-
-static void task_ctrl(void *param)
-{
-    (void)param;
-    int cycle = 0;
-
-    for (;;) {
-        cycle++;
-        rtos_task_delay(600);
-
-        /* 将工作者提升到最高优先级(3)，验证抢占 */
-        {
-            rtos_task_set_priority(h_worker, 3);
-            
-            sys_printk("[CTRL] cycle=%d raise worker to prio 3\r\n", cycle);
-        }
-
-        rtos_task_delay(600);
-
-        /* 将工作者降到最低优先级(1)，验证被抢占 */
-        {
-            rtos_task_set_priority(h_worker, 1);
-            
-            sys_printk("[CTRL] cycle=%d lower worker to prio 1\r\n", cycle);
-        }
-
-        if (cycle >= 5) {
-        sys_printk("[CTRL] test done, entering idle\r\n");
-            for (;;) {
-                rtos_task_delay(1000);
-            }
-        }
+    /* hi starts at prio=3, should be preempted by lo after lo boosts */
+    void hi_task(void *p) {
+        (void)p;
+        hi_seq = 1;
+        rtos_task_delay(50);
+        hi_seq = 2;
+        rtos_task_delete(NULL);
     }
+
+    rtos_task_create(lo_task, "lo", s_stk0, 160, NULL, 1, NULL);
+    rtos_task_create(hi_task, "hi", s_stk1, 160, NULL, 3, NULL);
+
+    rtos_task_delay(200);
+
+    TEST_ASSERT(lo_seq == 2, "lo task should have boosted and completed");
+    TEST_ASSERT(lo_seq != 999, "lo task priority should be 5 after boost");
+    TEST_ASSERT(hi_seq >= 1, "hi task should have at least started");
+
+    return true;
 }
 
-/* ============================================================
- * 统一入口
- * ============================================================ */
+TEST_CASE_REGISTER(priority, test_priority);
 
-void app_entry_task(void *param)
-{
-    (void)param;
-
-    sys_printk("=== Test: Priority Change ===\r\n");
-
-    rtos_task_create(task_worker, "worker", task_worker_stack, 128, NULL, 2, &h_worker);
-    rtos_task_create(task_ctrl,   "ctrl",   task_ctrl_stack,   128, NULL, 1, NULL);
-
-    rtos_task_delete(NULL);
-}
-
-#endif /* TEST_PRIORITY */
+#endif

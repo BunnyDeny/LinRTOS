@@ -1,128 +1,56 @@
 /*
- * Test: Task suspend and resume
- *
- * 验证项：
- *  - rtos_task_suspend(task) 挂起其他任务
- *  - rtos_task_resume(task)  恢复其他任务
- *  - rtos_task_suspend(NULL) 自挂起
- *  - 挂起后任务停止调度，恢复后继续运行
- *  - 恢复高优先级任务时触发抢占
+ * Test: Task suspend and resume (external)
+ * 验证: rtos_task_suspend / rtos_task_resume, 挂起期间任务不执行, 恢复后继续执行
  */
-
 #include "linRTOS.h"
 #include "cli_io.h"
+#include "test_case.h"
 
 #if defined(ENABLE_TEST_CASES) && defined(TEST_SUSPEND_RESUME)
 
+extern uint32_t s_stk0[160];
 
-/* ============================================================
- * 静态资源
- * ============================================================ */
+#define TEST_ASSERT(cond, msg) do { \
+    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+} while (0)
 
-static uint32_t task_ctrl_stack[128];
-static uint32_t task_worker_stack[128];
-static uint32_t task_self_suspend_stack[128];
-
-static volatile uint32_t s_worker_count = 0;
-static volatile uint32_t s_self_suspend_count = 0;
-static rtos_task_handle_t h_worker = NULL;
-static rtos_task_handle_t h_self_suspend = NULL;
-
-/* ============================================================
- * 工作者任务 —— 低优先级，持续计数
- *
- * 控制任务会周期性挂起/恢复它，验证计数是否停止/继续。
- * ============================================================ */
-
-static void task_worker(void *param)
+static bool test_suspend_resume(void)
 {
-    (void)param;
-    for (;;) {
-        s_worker_count++;
-        sys_printk("[WORK] tick=%lu count=%lu\r\n",
-                         (unsigned long)rtos_get_tick_count(),
-                         (unsigned long)s_worker_count);
+    static volatile uint32_t s_seq = 0;
+    static rtos_task_handle_t h_task;
+
+    sys_printk("[%s]\r\n", __func__);
+    s_seq = 0; h_task = NULL;
+
+    void task_func(void *p) {
+        (void)p;
+        s_seq = 1;
         rtos_task_delay(100);
+        s_seq = 2;
+        rtos_task_delete(NULL);
     }
+
+    rtos_err_t err = rtos_task_create(task_func, "t", s_stk0, 160, NULL, 2, &h_task);
+    TEST_ASSERT(err == RTOS_OK, "task create should succeed");
+    TEST_ASSERT(h_task != NULL, "handle should not be NULL");
+
+    /* Suspend immediately — task should not execute */
+    rtos_task_suspend(h_task);
+    rtos_task_delay(200);
+    TEST_ASSERT(s_seq == 0, "suspended task should not have run");
+
+    /* Verify state is SUSPENDED */
+    rtos_task_state_t st = rtos_task_get_state(h_task);
+    TEST_ASSERT(st == RTOS_TASK_SUSPENDED, "task should be SUSPENDED");
+
+    /* Resume — task should complete */
+    rtos_task_resume(h_task);
+    rtos_task_delay(200);
+    TEST_ASSERT(s_seq == 2, "resumed task should have completed all steps");
+
+    return true;
 }
 
-/* ============================================================
- * 自挂起任务 —— 中优先级
- *
- * 运行 3 次后自挂起，等待控制任务恢复。
- * ============================================================ */
+TEST_CASE_REGISTER(suspend_resume, test_suspend_resume);
 
-static void task_self_suspend(void *param)
-{
-    (void)param;
-    for (;;) {
-        s_self_suspend_count++;
-        sys_printk("[SELF] tick=%lu count=%lu\r\n",
-                         (unsigned long)rtos_get_tick_count(),
-                         (unsigned long)s_self_suspend_count);
-
-        if (s_self_suspend_count >= 3) {
-        sys_printk("[SELF] auto-suspending myself\r\n");
-            s_self_suspend_count = 0;
-            rtos_task_suspend(NULL);   /* 自挂起 */
-            /* 恢复后继续从这里执行 */
-            sys_printk("[SELF] resumed!\r\n");
-        }
-        rtos_task_delay(200);
-    }
-}
-
-/* ============================================================
- * 控制任务 —— 高优先级
- *
- * 周期性地挂起/恢复工作者，并恢复自挂起任务。
- * ============================================================ */
-
-static void task_ctrl(void *param)
-{
-    (void)param;
-    int cycle = 0;
-    for (;;) {
-        cycle++;
-        sys_printk("[CTRL] cycle=%d tick=%lu worker=%lu\r\n",
-                         cycle,
-                         (unsigned long)rtos_get_tick_count(),
-                         (unsigned long)s_worker_count);
-
-        /* 每 2 个周期切换工作者的挂起/恢复状态 */
-        if (cycle % 2 == 1) {
-        sys_printk("[CTRL] suspending worker\r\n");
-            rtos_task_suspend(h_worker);
-        } else {
-        sys_printk("[CTRL] resuming worker\r\n");
-            rtos_task_resume(h_worker);
-        }
-
-        /* 每 3 个周期恢复一次自挂起任务 */
-        if (cycle % 3 == 0) {
-        sys_printk("[CTRL] resuming self-suspend task\r\n");
-            rtos_task_resume(h_self_suspend);
-        }
-
-        rtos_task_delay(500);
-    }
-}
-
-/* ============================================================
- * 统一入口
- * ============================================================ */
-
-void app_entry_task(void *param)
-{
-    (void)param;
-
-    sys_printk("=== Test: Suspend/Resume ===\r\n");
-
-    rtos_task_create(task_worker,       "worker",       task_worker_stack,       128, NULL, 1, &h_worker);
-    rtos_task_create(task_self_suspend, "self_suspend", task_self_suspend_stack, 128, NULL, 2, &h_self_suspend);
-    rtos_task_create(task_ctrl,         "ctrl",         task_ctrl_stack,         128, NULL, 3, NULL);
-
-    rtos_task_delete(NULL);
-}
-
-#endif /* TEST_SUSPEND_RESUME */
+#endif

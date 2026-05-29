@@ -1,81 +1,54 @@
 menuconfig ENABLE_TEST_CASES
-	bool "Enable example test cases"
+	bool "Enable test cases"
 	default n
 	help
-	  When enabled, you can select exactly one test case to build.
-	  When disabled, no test case code is compiled.
+	  When enabled, you can select any number of test cases to build.
+	  Each test registers itself via a linker section; test_runner.c
+	  iterates the section and runs every registered test sequentially.
+	  Results are printed to serial.  No per-test re-flash needed.
 
 if ENABLE_TEST_CASES
-
-choice TEST_CASE
-	prompt "Select test case to build"
-	default TEST_FPU
-	help
-	  Only one test case can be compiled at a time.
-	  Each test file provides app_entry_start().
-
-config TEST_FPU
-	bool "FPU context switch"
-	help
-	  Multi-task preemption with FPU register verification.
-
-config TEST_SELFDELETE
-	bool "Self-delete recycle"
-	help
-	  Cyclic create/self-delete with TCB reuse by idle task.
-
-config TEST_BASIC_TASKS
-	bool "Basic multi-task"
-	help
-	  Simple multi-task creation and preemption scheduling test.
-
-config TEST_SUSPEND_RESUME
-	bool "Task suspend and resume"
-	help
-	  Verify rtos_task_suspend / rtos_task_resume APIs.
-
-config TEST_SCHED_LOCK
-	bool "Scheduler lock nested/unlock test"
-	help
-	  Verify rtos_sched_lock / rtos_sched_unlock and nesting.
 
 config TEST_STATE
 	bool "Task state query"
 	help
 	  Verify rtos_task_get_state / get_priority / get_current.
 
-config TEST_PRIORITY
-	bool "Dynamic priority change"
+config TEST_MUTEX_BASIC
+	bool "Mutex basic (take/give/ownership)"
 	help
-	  Verify rtos_task_set_priority and preemption after priority change.
+	  Verify rtos_mutex_init, take, give, holder query,
+	  and non-holder give rejection.
 
-config TEST_YIELD
-	bool "Task yield"
+config TEST_MUTEX_RECURSIVE
+	bool "Mutex recursive (nested take/give)"
 	help
-	  Verify rtos_task_yield on same-priority tasks.
+	  Verify rtos_mutex_init_recursive, take_recursive,
+	  give_recursive, count tracking, and blocking.
 
-config TEST_STACK_FREE
-	bool "Stack free query"
+config TEST_MUTEX_PRIORITY
+	bool "Mutex priority inheritance"
 	help
-	  Verify rtos_task_get_stack_free API.
+	  Verify priority boosting when high-priority task
+	  blocks on mutex held by low-priority task.
 
-config TEST_ABORT_DELAY
-	bool "Abort delay"
+config TEST_SEMAPHORE_BINARY
+	bool "Semaphore binary (give/take)"
 	help
-	  Verify rtos_task_abort_delay and rtos_scheduler_is_running.
+	  Verify rtos_semaphore_init_binary, give, take,
+	  and producer-consumer synchronization.
 
-config TEST_CM_BACKTRACE
-	bool "CmBacktrace integration"
-	depends on COMPONENT_CM_BACKTRACE
+config TEST_SEMAPHORE_COUNTING
+	bool "Semaphore counting (multi producer)"
 	help
-	  Verify CmBacktrace initialization, call stack backtrace,
-	  and HardFault diagnosis under LinRTOS.
+	  Verify rtos_semaphore_init_counting, multi-give,
+	  multi-take, and max-count boundary.
 
-config TEST_WORKQUEUE
-	bool "Workqueue scheduling"
-	depends on WORKQUEUE
+config TEST_SEMAPHORE_ISR
+	bool "Semaphore ISR-safe give_from_isr"
 	help
-	  Verify workqueue immediate and delayed work scheduling.
+	  Verify rtos_semaphore_give_from_isr in SysTick
+	  interrupt context with a consumer task.
 
 config TEST_QUEUE_BASIC
 	bool "Queue basic API (send/recv/front/overwrite/peek)"
@@ -87,7 +60,7 @@ config TEST_QUEUE_BLOCKING
 	bool "Queue blocking and timeout"
 	help
 	  Verify blocking send/recv, producer-consumer sync,
-	  and RTOS_DONT_WAIT / timeout behaviors.
+	  and timeout behaviors.
 
 config TEST_QUEUE_ISR
 	bool "Queue ISR-safe send_from_isr"
@@ -95,48 +68,82 @@ config TEST_QUEUE_ISR
 	  Verify rtos_queue_generic_send_from_isr in SysTick
 	  interrupt context with a consumer task.
 
-config TEST_SEMAPHORE_BINARY
-	bool "Semaphore binary (give/take/boundary/timeout)"
+config TEST_SUSPEND_RESUME
+	bool "Task suspend and resume (external)"
 	help
-	  Verify rtos_semaphore_init_binary, give, take,
-	  empty/full boundary, and timeout behavior.
+	  Verify rtos_task_suspend / rtos_task_resume APIs
+	  with external control.
 
-config TEST_SEMAPHORE_COUNTING
-	bool "Semaphore counting (initial/max/overflow)"
+config TEST_SELF_SUSPEND
+	bool "Task self-suspend suspend(NULL)"
 	help
-	  Verify rtos_semaphore_init_counting, multi-give,
-	  multi-take, and max-count boundary.
+	  Verify rtos_task_suspend(NULL) self-suspend
+	  and external resume.
 
-config TEST_SEMAPHORE_ISR
-	bool "Semaphore ISR-safe give_from_isr"
+config TEST_PRIORITY
+	bool "Dynamic priority change"
 	help
-	  Verify rtos_semaphore_give_from_isr in SysTick
-	  interrupt context with a consumer task.
+	  Verify rtos_task_set_priority and preemption
+	  after priority change.
 
-config TEST_MUTEX_BASIC
-	bool "Mutex basic (take/give/ownership/state)"
+config TEST_SELFDELETE
+	bool "Self-delete and TCB recycle"
 	help
-	  Verify rtos_mutex_init, take, give, holder query,
-	  and non-holder give rejection.
+	  Verify self-delete with idle task TCB recycle
+	  and reuse by subsequent rtos_task_create.
 
-config TEST_MUTEX_RECURSIVE
-	bool "Mutex recursive (nested take/give)"
+config TEST_SCHED_LOCK
+	bool "Scheduler lock single/nested"
 	help
-	  Verify rtos_mutex_init_recursive, take_recursive,
-	  give_recursive, and count tracking.
+	  Verify rtos_sched_lock / rtos_sched_unlock,
+	  single-level and nested locking.
 
-config TEST_MUTEX_PRIORITY
-	bool "Mutex priority inheritance"
+config TEST_YIELD
+	bool "Task yield (same-priority round-robin)"
 	help
-	  Verify priority boosting when high-priority task
-	  blocks on mutex held by low-priority task.
+	  Verify rtos_task_yield alternation between
+	  same-priority tasks.
 
-config TEST_ALL
-	bool "All-in-one test suite (single flash)"
+config TEST_DELAY_UNTIL
+	bool "Absolute periodic delay (delay_until)"
 	help
-	  Run all core tests sequentially from a single binary.
-	  Results are printed to serial.  No per-test re-flash needed.
+	  Verify rtos_task_delay_until periodic accuracy.
 
-endchoice
+config TEST_STACK_FREE
+	bool "Stack free query"
+	help
+	  Verify rtos_task_get_stack_free returns
+	  a reasonable value within bounds.
+
+config TEST_ABORT_DELAY
+	bool "Abort delay (force wake blocked task)"
+	help
+	  Verify rtos_task_abort_delay wakes a blocked
+	  task and rtos_scheduler_is_running reports true.
+
+config TEST_FPU
+	bool "FPU context switch (Cortex-M4F)"
+	help
+	  Multi-task preemption with FPU register verification.
+	  Requires FPU hardware.
+
+config TEST_CM_BACKTRACE
+	bool "CmBacktrace integration"
+	depends on COMPONENT_CM_BACKTRACE
+	help
+	  Verify CmBacktrace initialization, call stack backtrace,
+	  and firmware info output.
+
+config TEST_WORKQUEUE
+	bool "Workqueue scheduling"
+	depends on WORKQUEUE
+	help
+	  Verify immediate and delayed work scheduling.
+
+config TEST_BASIC_TASKS
+	bool "Basic multi-task + delay + preemption"
+	help
+	  Visual test: multi-task creation, delay, delay_until,
+	  and priority preemption.  Best observed via serial log.
 
 endif
