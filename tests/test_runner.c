@@ -184,7 +184,7 @@ void app_entry_task(void *param)
         rtos_task_delay(50);
     }
 
-    sys_printk("\r\n========================================\r\n");
+    sys_printk("========================================\r\n");
     sys_printk("  Results: %d / %d PASS\r\n", pass, total);
     sys_printk("========================================\r\n");
 
