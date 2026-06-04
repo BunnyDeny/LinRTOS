@@ -17,8 +17,7 @@
 #include "rtos_semaphore.h"
 #include "test_case.h"
 
-#define COLOR_GREEN  "\033[32m"
-#define COLOR_RED    "\033[31m"
+/* COLOR_* macros are provided by cli_io.h (via log_output.h) */
 #define COLOR_RESET  "\033[0m"
 
 #if defined(ENABLE_TEST_CASES) && defined(ARCH_COMPILER_GCC)
