@@ -16,7 +16,7 @@
 
 #include <stdarg.h>
 
-/* Print line: append \r\n to format and call sys_printk once (atomic). */
+/* Print line: append \r\n to format and call cli_printk once (atomic). */
 #define cmb_println cmb_println
 static inline int cmb_println(const char *fmt, ...)
 {
@@ -31,12 +31,12 @@ static inline int cmb_println(const char *fmt, ...)
     lbuf[len++] = '\r';
     lbuf[len++] = '\n';
     lbuf[len]   = '\0';
-    return sys_printk("%s", lbuf);
+    return cli_printk("%s", lbuf);
 }
 
 #define cmb_print(fmt, ...) \
     do { \
-        sys_printk(fmt, ##__VA_ARGS__); \
+        cli_printk(fmt, ##__VA_ARGS__); \
     } while(0)
 
 /* Enable OS platform (LinRTOS is an RTOS) */

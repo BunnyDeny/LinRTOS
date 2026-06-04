@@ -19,14 +19,14 @@
 
 static void __attribute__((noinline)) trigger_memory_fault(void)
 {
-    sys_printk("[CMB] Triggering illegal memory access...\r\n");
+    cli_printk("[CMB] Triggering illegal memory access...\r\n");
     volatile uint32_t *bad_ptr = (volatile uint32_t *)0xFFFFFFFF;
     *bad_ptr = 0xDEADBEEF;
 }
 
 static void __attribute__((noinline)) level3(void)
 {
-    sys_printk("[CMB] About to trigger HardFault...\r\n");
+    cli_printk("[CMB] About to trigger HardFault...\r\n");
     trigger_memory_fault();
 }
 
@@ -35,7 +35,7 @@ static void __attribute__((noinline)) level1(void) { level2(); }
 
 static bool test_cm_backtrace(void)
 {
-    sys_printk("\r\n  -> HardFault will be triggered, system halts.\r\n");
+    cli_printk("\r\n  -> HardFault will be triggered, system halts.\r\n");
 
     cm_backtrace_init("LinRTOS-test", "hw-v1.0", "sw-v1.0");
     cm_backtrace_firmware_info();
@@ -48,15 +48,15 @@ static bool test_cm_backtrace(void)
 
         /* debug: print stack boundaries being scanned */
         extern uint32_t _stext, _etext;
-        sys_printk("[CMB] code: %08x-%08x sp=%08x psp=%08x on_psp=%d\r\n",
+        cli_printk("[CMB] code: %08x-%08x sp=%08x psp=%08x on_psp=%d\r\n",
                    (unsigned)&_stext, (unsigned)&_etext,
                    (unsigned)sp, (unsigned)cmb_get_psp(), cmb_is_on_psp());
 
         depth = cm_backtrace_call_stack(call_stack,
                                          sizeof(call_stack) / sizeof(call_stack[0]), sp);
-        sys_printk("[CMB] call stack depth=%u\r\n", (unsigned)depth);
+        cli_printk("[CMB] call stack depth=%u\r\n", (unsigned)depth);
         for (size_t i = 0; i < depth; i++) {
-            sys_printk("[CMB]   [%u] 0x%08X\r\n", (unsigned)i, (unsigned)call_stack[i]);
+            cli_printk("[CMB]   [%u] 0x%08X\r\n", (unsigned)i, (unsigned)call_stack[i]);
         }
     }
 
@@ -69,7 +69,7 @@ static bool test_cm_backtrace(void)
 #else
 static bool test_cm_backtrace(void)
 {
-    sys_printk("  SKIP\n");
+    cli_printk("  SKIP\n");
     return true;
 }
 #endif

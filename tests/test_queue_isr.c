@@ -18,7 +18,7 @@ extern volatile bool     s_isr_q_woken;
 extern volatile bool     s_isr_queue_active;
 
 #define TEST_ASSERT(cond, msg) do { \
-    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+    if (!(cond)) { cli_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
 } while (0)
 
 static bool test_queue_isr(void)
@@ -37,7 +37,7 @@ static bool test_queue_isr(void)
             uint32_t v;
             rtos_err_t e = rtos_queue_recv(&s_isr_q, &v, RTOS_WAIT_FOREVER);
             if (e == RTOS_OK) {
-                sys_printk("  q-isr recv %lu\r\n", (unsigned long)v);
+                cli_printk("  q-isr recv %lu\r\n", (unsigned long)v);
             }
         }
         s_isr_q_done = true;

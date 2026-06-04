@@ -69,9 +69,7 @@ config CLI_CMD_BUF_SIZE
 config CLI_MPOOL_COUNT
     int "Memory pool block count"
     default 6
-    range 6 32
-    help
-      Must be >= 6. Upper bound is 32 (enforced by cli_config.h).
+    range 1 32
 
 config CLI_MPOOL_SIZE
     int

@@ -12,7 +12,7 @@ extern uint32_t s_stk0[160];
 extern uint32_t s_stk1[160];
 
 #define TEST_ASSERT(cond, msg) do { \
-    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+    if (!(cond)) { cli_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
 } while (0)
 
 static bool test_state(void)
@@ -51,9 +51,9 @@ static bool test_state(void)
     rtos_task_create(task_query,  "query",  s_stk0, 160, NULL, 2, NULL);
     rtos_task_delay(600);
 
-    sys_printk("  self state=%d prio=%lu handle=%p\r\n",
+    cli_printk("  self state=%d prio=%lu handle=%p\r\n",
                (int)s_self_state, (unsigned long)s_self_prio, (void *)s_self_handle);
-    sys_printk("  helper state1=%d state2=%d\r\n",
+    cli_printk("  helper state1=%d state2=%d\r\n",
                (int)s_helper_state1, (int)s_helper_state2);
 
     TEST_ASSERT(s_self_state == RTOS_TASK_RUNNING, "self should be RUNNING(1)");

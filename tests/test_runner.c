@@ -78,7 +78,7 @@ static __attribute__((unused)) bool wait_for(volatile uint32_t *flag, uint32_t e
     uint32_t start = rtos_get_tick_count();
     while (*flag < expect) {
         if ((int32_t)(rtos_get_tick_count() - start) >= (int32_t)timeout_ticks) {
-            sys_printk("  FAIL L%d: timeout waiting flag=%lu expect=%lu\r\n",
+            cli_printk("  FAIL L%d: timeout waiting flag=%lu expect=%lu\r\n",
                        __LINE__, (unsigned long)*flag, (unsigned long)expect);
             return false;
         }
@@ -93,7 +93,7 @@ static __attribute__((unused)) bool wait_for_bool(volatile bool *flag, bool expe
     uint32_t start = rtos_get_tick_count();
     while (*flag != expect) {
         if ((int32_t)(rtos_get_tick_count() - start) >= (int32_t)timeout_ticks) {
-            sys_printk("  FAIL L%d: timeout waiting bool\r\n", __LINE__);
+            cli_printk("  FAIL L%d: timeout waiting bool\r\n", __LINE__);
             return false;
         }
         rtos_task_delay(10);
@@ -137,8 +137,10 @@ void SysTick_Handler(void)
 
     /* ---- ISR split-line demo (every ~2000 ticks, 2s) ---- */
     if (isr_cnt == 2000) {
-        sys_printk("  [ISR] split");
-        sys_printk(" line demo\r\n");
+        cli_printk_batch_begin_cont(KERN_INFO);
+        cli_printk("  [ISR] split");
+        pr_cont(" line demo\r\n");
+        cli_printk_batch_end();
     }
 }
 
@@ -150,7 +152,7 @@ void app_entry_task(void *param)
 {
     (void)param;
 
-    sys_printk("=== LinRTOS Test Suite ===\r\n");
+    cli_printk("=== LinRTOS Test Suite ===\r\n");
 
     /* First pass: count registered tests */
     int total = 0;
@@ -160,7 +162,7 @@ void app_entry_task(void *param)
     }
 
     if (total == 0) {
-        sys_printk("  No test cases registered.\r\n");
+        cli_printk("  No test cases registered.\r\n");
         s_suite_done = true;
         rtos_task_delete(NULL);
         return;
@@ -175,18 +177,18 @@ void app_entry_task(void *param)
         bool ok = tc->fn();
         if (ok) {
             pass++;
-            sys_printk("[ " COLOR_GREEN "ok" COLOR_RESET " ] [%2d/%2d] %s\r\n",
+            cli_printk("[ " COLOR_GREEN "ok" COLOR_RESET " ] [%2d/%2d] %s\r\n",
                        idx, total, tc->name);
         } else {
-            sys_printk("[ " COLOR_RED "err" COLOR_RESET " ] [%2d/%2d] %s\r\n",
+            cli_printk("[ " COLOR_RED "err" COLOR_RESET " ] [%2d/%2d] %s\r\n",
                        idx, total, tc->name);
         }
         rtos_task_delay(50);
     }
 
-    sys_printk("========================================\r\n");
-    sys_printk("  Results: %d / %d PASS\r\n", pass, total);
-    sys_printk("========================================\r\n");
+    cli_printk("========================================\r\n");
+    cli_printk("  Results: %d / %d PASS\r\n", pass, total);
+    cli_printk("========================================\r\n");
 
     s_suite_done = true;
     rtos_task_delete(NULL);

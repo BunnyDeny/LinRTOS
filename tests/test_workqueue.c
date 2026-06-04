@@ -17,7 +17,7 @@
 #endif
 
 #define TEST_ASSERT(cond, msg) do { \
-    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+    if (!(cond)) { cli_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
 } while (0)
 
 #ifdef WORKQUEUE
@@ -38,7 +38,7 @@ static bool test_workqueue(void)
         imm_done = true;
         imm_tick = rtos_get_tick_count();
         /* workqueue runs in task context, each cli_printk is atomic */
-        sys_printk("  [WQ] immediate\r\n");
+        cli_printk("  [WQ] immediate\r\n");
     }
 
     void del_handler(struct work_struct *ws) {
@@ -66,21 +66,21 @@ static bool test_workqueue(void)
 
     {
         int32_t dt = (int32_t)(imm_tick - sched_tick);
-        sys_printk("  immediate after %ld ticks\r\n", (long)dt);
+        cli_printk("  immediate after %ld ticks\r\n", (long)dt);
         TEST_ASSERT(dt >= 0 && dt < 100,
                     "immediate work should fire < 100 ticks");
     }
     {
         int32_t dt = (int32_t)(del_tick - sched_tick);
-        sys_printk("  delayed after %ld ticks (expected ~300)\r\n", (long)dt);
+        cli_printk("  delayed after %ld ticks (expected ~300)\r\n", (long)dt);
         TEST_ASSERT(dt >= 250 && dt <= 400,
                     "delayed work should fire in 250-400 ticks");
     }
 
     /* batch-mode split-line: two calls form one logical line */
     cli_printk_batch_begin();
-    sys_printk("  [WQ] batch split");
-    sys_printk(" line\r\n");
+    cli_printk("  [WQ] batch split");
+    cli_printk(" line\r\n");
     cli_printk_batch_end();
 
     return true;
@@ -88,7 +88,7 @@ static bool test_workqueue(void)
 #else
 static bool test_workqueue(void)
 {
-    sys_printk("  SKIP\n");
+    cli_printk("  SKIP\n");
     return true;
 }
 #endif

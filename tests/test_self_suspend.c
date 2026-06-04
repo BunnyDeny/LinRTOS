@@ -12,7 +12,7 @@ extern uint32_t s_stk0[160];
 extern uint32_t s_stk1[160];
 
 #define TEST_ASSERT(cond, msg) do { \
-    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+    if (!(cond)) { cli_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
 } while (0)
 
 static bool test_self_suspend(void)

@@ -14,7 +14,7 @@ extern uint32_t s_stk1[160];
 extern uint32_t s_stk2[160];
 
 #define TEST_ASSERT(cond, msg) do { \
-    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+    if (!(cond)) { cli_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
 } while (0)
 
 static bool test_basic_tasks(void)
@@ -58,7 +58,7 @@ static bool test_basic_tasks(void)
     rtos_task_delay(2000);
 
     uint32_t h = high_cnt, m = mid_cnt, l = low_cnt;
-    sys_printk("  after 2000 ticks: high=%lu mid=%lu low=%lu\r\n",
+    cli_printk("  after 2000 ticks: high=%lu mid=%lu low=%lu\r\n",
                (unsigned long)h, (unsigned long)m, (unsigned long)l);
 
     /* High priority (delay=200) should run ~10 times in 2000 ticks.

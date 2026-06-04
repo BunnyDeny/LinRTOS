@@ -13,7 +13,7 @@ extern uint32_t s_stk0[160];
 extern uint32_t s_stk1[160];
 
 #define TEST_ASSERT(cond, msg) do { \
-    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+    if (!(cond)) { cli_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
 } while (0)
 
 static bool wait_for_val(volatile uint32_t *flag, uint32_t expect, uint32_t to)

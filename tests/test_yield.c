@@ -12,7 +12,7 @@ extern uint32_t s_stk0[160];
 extern uint32_t s_stk1[160];
 
 #define TEST_ASSERT(cond, msg) do { \
-    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+    if (!(cond)) { cli_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
 } while (0)
 
 static bool test_yield(void)
@@ -75,7 +75,7 @@ static bool test_yield(void)
     /* Verify alternation: for each pair, A_i < B_i < A_{i+1} */
     for (int i = 0; i < 5; i++) {
         if (i < 5 && s_a[i] >= s_b[i]) {
-            sys_printk("  WARN: A[%d]=%lu >= B[%d]=%lu (expected A<B each pair)\r\n",
+            cli_printk("  WARN: A[%d]=%lu >= B[%d]=%lu (expected A<B each pair)\r\n",
                        i, (unsigned long)s_a[i], i, (unsigned long)s_b[i]);
         }
     }

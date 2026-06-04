@@ -1,4 +1,4 @@
-menu "CLI Components"
+menu "Third-Party Components"
 
 config LIST
 	bool "Enable linked list (list.h)"
@@ -14,10 +14,7 @@ config WORKQUEUE
 	help
 	  Simplified workqueue for MCU.
 	  Supports delayed execution, FIFO scheduling.
-	  Requires LIST to be enabled (auto).
-	  NOTE: After enabling, you must manually add
-	  Components/lincli/src/third_party/workqueue/workqueue.c
-	  to your Makefile C_SOURCES.
+	  Requires LIST to be enabled(auto).
 
 config HEXDUMP
 	bool "Enable hexdump memory dump command"
@@ -26,9 +23,6 @@ config HEXDUMP
 	  Provides 'hexdump' command for embedded memory/flash debugging.
 	  Supports configurable address range, bytes per line,
 	  and ASCII output.
-	  NOTE: After enabling, you must manually add
-	  Components/lincli/src/third_party/hexdump/hexdump.c
-	  to your Makefile C_SOURCES.
 
 config HEXDUMP_MIN_ADDR
 	hex "Default minimum valid address"

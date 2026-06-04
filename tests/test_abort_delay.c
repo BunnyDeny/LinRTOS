@@ -11,7 +11,7 @@
 extern uint32_t s_stk0[160];
 
 #define TEST_ASSERT(cond, msg) do { \
-    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+    if (!(cond)) { cli_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
 } while (0)
 
 static bool test_abort_delay(void)
@@ -24,11 +24,11 @@ static bool test_abort_delay(void)
 
     void sleeper(void *p) {
         (void)p;
-        sys_printk("  sleeper delaying 5000 ticks...\r\n");
+        cli_printk("  sleeper delaying 5000 ticks...\r\n");
         uint32_t t0 = rtos_get_tick_count();
         rtos_task_delay(5000);
         sleeper_wake_tick = rtos_get_tick_count() - t0;
-        sys_printk("  sleeper woken after %lu ticks\r\n",
+        cli_printk("  sleeper woken after %lu ticks\r\n",
                    (unsigned long)sleeper_wake_tick);
         rtos_task_delete(NULL);
     }

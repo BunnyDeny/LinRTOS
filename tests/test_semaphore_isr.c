@@ -18,7 +18,7 @@ extern volatile bool     s_isr_sem_woken;
 extern volatile bool     s_isr_sem_active;
 
 #define TEST_ASSERT(cond, msg) do { \
-    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+    if (!(cond)) { cli_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
 } while (0)
 
 static bool test_semaphore_isr(void)
@@ -36,7 +36,7 @@ static bool test_semaphore_isr(void)
         for (uint32_t i = 0; i < 5; i++) {
             rtos_err_t e = rtos_semaphore_take(&s_isr_sem, RTOS_WAIT_FOREVER);
             if (e == RTOS_OK) {
-                sys_printk("  sem-isr take %lu\r\n", (unsigned long)(i + 1));
+                cli_printk("  sem-isr take %lu\r\n", (unsigned long)(i + 1));
             }
         }
         s_isr_sem_done = true;

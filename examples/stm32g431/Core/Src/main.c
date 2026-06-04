@@ -37,7 +37,7 @@ int main(void)
     MX_DMA_Init();
     MX_USART3_UART_Init();
 
-    sys_printk("=== LinRTOS Test Boot ===\r\n");
+    cli_printk("=== LinRTOS Test Boot ===\r\n");
 
     HAL_UARTEx_ReceiveToIdle_DMA(&huart3, s_rx_buf, UART_RX_BUF_SIZE);
 

@@ -62,6 +62,7 @@ Core/Src/stm32g4xx_hal_msp.c \
 ../../Components/lincli/src/cli/cli_user.c \
 ../../Components/lincli/src/cli/cli_var.c \
 ../../Components/lincli/src/cli/cmd_dispose.c \
+../../Components/lincli/src/cli/cli_term.c \
 ../../Components/lincli/src/init/critical_default.c \
 ../../Components/lincli/src/init/init_d.c \
 ../../Components/lincli/src/init/scheduler.c \
@@ -72,7 +73,7 @@ Core/Src/stm32g4xx_hal_msp.c \
 ../../Components/lincli/src/lib/cli_float.c \
 ../../Components/lincli/src/lib/cli_mpool.c \
 ../../Components/lincli/src/lib/cli_string.c \
-../../Components/lincli/src/lib/cli_vsnprintf.c \
+../../Components/lincli/src/lib/log_output.c \
 ../../Components/lincli/src/lib/kfifo.c \
 ../../Components/lincli/src/lib/stateM.c \
 ../../Components/lincli/src/third_party/workqueue/workqueue.c \

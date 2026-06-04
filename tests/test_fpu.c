@@ -21,7 +21,7 @@ extern uint32_t s_fpu_stk2[160];
 #endif
 
 #define TEST_ASSERT(cond, msg) do { \
-    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+    if (!(cond)) { cli_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
 } while (0)
 
 #ifdef ARCH_ENABLE_FPU
@@ -87,7 +87,7 @@ static bool test_fpu(void)
 #else
 static bool test_fpu(void)
 {
-    sys_printk("  SKIP\n");
+    cli_printk("  SKIP\n");
     return true;
 }
 #endif

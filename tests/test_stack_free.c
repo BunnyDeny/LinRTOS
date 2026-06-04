@@ -12,7 +12,7 @@ extern uint32_t s_stk0[160];
 extern uint32_t s_stk1[160];
 
 #define TEST_ASSERT(cond, msg) do { \
-    if (!(cond)) { sys_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
+    if (!(cond)) { cli_printk("  FAIL L%d: %s\r\n", __LINE__, msg); return false; } \
 } while (0)
 
 static bool test_stack_free(void)
@@ -25,14 +25,14 @@ static bool test_stack_free(void)
     void task_a(void *p) {
         (void)p;
         free_a = rtos_task_get_stack_free(NULL);
-        sys_printk("  A stack free=%lu words\r\n", (unsigned long)free_a);
+        cli_printk("  A stack free=%lu words\r\n", (unsigned long)free_a);
         rtos_task_delete(NULL);
     }
 
     void task_b(void *p) {
         (void)p;
         free_b = rtos_task_get_stack_free(NULL);
-        sys_printk("  B stack free=%lu words\r\n", (unsigned long)free_b);
+        cli_printk("  B stack free=%lu words\r\n", (unsigned long)free_b);
         rtos_task_delete(NULL);
     }
 
